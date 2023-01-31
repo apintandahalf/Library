@@ -43,7 +43,21 @@ namespace
 				if (!areEqual(str1, str2))
 					++count;
 			}
-			for (size_t i = 1U; i < 40U; ++i)
+			for (size_t i = 1U; i < 7U; ++i)
+			{
+				const auto str1 = SString8(i, 'A');
+				const auto str2 = std::string(i, 'A');
+				if (!areEqual(str1, str2))
+					++count;
+			}
+			for (size_t i = 8U; i < 9U; ++i)
+			{
+				const auto str1 = SString8(i, 'A');
+				const auto str2 = std::string(i, 'A');
+				if (!areEqual(str1, str2))
+					++count;
+			}
+			for (size_t i = 9U; i < 40U; ++i)
 			{
 				const auto str1 = SString8(i, 'A');
 				const auto str2 = std::string(i, 'A');

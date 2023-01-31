@@ -18,6 +18,9 @@
     <ClCompile Include="SString8.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Other.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SString8.h">
