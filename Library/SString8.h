@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#define CONSTEXPR //constexpr - only valid for C++17
+#define CONSTEXPR // I'm stickig at C++17 for the time being - no constexpr
 class SString8
 {
 public:
@@ -15,24 +15,19 @@ public:
 
     SString8(std::nullptr_t) = delete;
 
-    //SString8() noexcept = default; // (until C++20)
-    CONSTEXPR SString8() noexcept; // (since C++20)
+    CONSTEXPR SString8() noexcept;
 
     SString8(std::string_view str);
     SString8(const std::string& str);
     std::string_view asStringView() const;
 
-    //SString8(size_type count, CharT ch); // (until C++20)
-    CONSTEXPR SString8(size_type count, CharT ch); // (since C++20)
+    CONSTEXPR SString8(size_type count, CharT ch);
 
-    //SString8(const SString8& other, size_type pos); // (until C++20)
-    CONSTEXPR SString8(const SString8& other, size_type pos); // (since C++20)
+    CONSTEXPR SString8(const SString8& other, size_type pos);
 
-    //SString8(const SString8& other, size_type pos, size_type count); // (until C++20)
-    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // (since C++20)
+    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count);
 
-    //SString8(const CharT* s, size_type count); // (until C++20)
-    CONSTEXPR SString8(const CharT* s, size_type count); // (since C++20)
+    CONSTEXPR SString8(const CharT* s, size_type count);
 
         //////////////
     // for the moment
@@ -52,15 +47,11 @@ public:
     }
 
     // data and length
-    //const CharT* data() const noexcept; //(since C++11) // (until C++20)
-    CONSTEXPR const CharT* data() const noexcept; // (since C++20)
-    //CharT* data() noexcept; // (since C++17) // (until C++20)
-    CONSTEXPR CharT* data() noexcept; // (since C++20)
+    CONSTEXPR const CharT* data() const noexcept;
+    CONSTEXPR CharT* data() noexcept;
 
-    //size_type size() const noexcept; // (since C++11) // (until C++20)
-    CONSTEXPR size_type size() const noexcept; // (since C++20)
-    //size_type length() const noexcept; // (since C++11) // (until C++20)
-    CONSTEXPR size_type length() const noexcept; // (since C++20)
+    CONSTEXPR size_type size() const noexcept;
+    CONSTEXPR size_type length() const noexcept;
 
 private:
 
