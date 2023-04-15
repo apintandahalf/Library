@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#define CONSTEXPR // I'm stickig at C++17 for the time being - no constexpr
+#define CONSTEXPR // I'm not doing constexpr or allocators for the time being
 class SString8
 {
 public:
@@ -15,21 +15,54 @@ public:
 
     SString8(std::nullptr_t) = delete;
 
-    CONSTEXPR SString8() noexcept;
+    CONSTEXPR SString8() noexcept; // tested by String8TestDefaultConstructor
 
-    SString8(std::string_view str);
-    SString8(const std::string& str);
-    std::string_view asStringView() const;
+    SString8(std::string_view str); // tested by String8TestConstructorStringView
+    SString8(const std::string& str); // tested by String8TestConstructorString
+    std::string_view asStringView() const; // tested by String8TestAsStringView
 
-    CONSTEXPR SString8(size_type count, CharT ch);
+    CONSTEXPR SString8(size_type count, CharT ch); // tested by String8TestConstructorCountChar
 
-    CONSTEXPR SString8(const SString8& other, size_type pos);
+    CONSTEXPR SString8(const SString8& other, size_type pos); // tested by String8TestConstructorOtherPos
 
-    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count);
+    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // tested by String8TestConstructorOtherPosCount
 
-    CONSTEXPR SString8(const CharT* s, size_type count);
+    CONSTEXPR SString8(const CharT* s, size_type count); // tested by String8TestConstructorCharStarCount
 
-        //////////////
+    CONSTEXPR SString8(const CharT* s); // tested by String8TestConstructorCharStar
+
+    template<class InputIt> SString8(InputIt first, InputIt last); // tested by String8TestConstructorInputItFirstLast
+
+    CONSTEXPR SString8(std::initializer_list<CharT> ilist); // tested by String8TestConstructorInitialiserList
+
+    template<class StringViewLike>
+        requires std::is_convertible_v<const StringViewLike&, std::basic_string_view<CharT>>
+        && !std::is_convertible_v<const StringViewLike&, const CharT*>
+    CONSTEXPR explicit SString8(const StringViewLike& t) //  tested by String8TestConstructorStringViewLike
+    {
+        std::string tempstdstr(t);
+        auto tempstr = SString8(tempstdstr);
+        std::swap(*this, tempstr);
+    }
+
+    template<class StringViewLike>
+        requires std::is_convertible_v<const StringViewLike&, std::basic_string_view<CharT>>
+        && !std::is_convertible_v<const StringViewLike&, const CharT*>
+    CONSTEXPR explicit SString8(const StringViewLike& t, size_type pos, size_type n) // tested by String8TestConstructorStringViewLikePosN
+    {
+        std::string tempstdstr(t, pos, n);
+        auto tempstr = SString8(tempstdstr);
+        std::swap(*this, tempstr);
+    }
+
+    // Next up:
+    // Rule of 5 (copy constructor by value with swap)
+    // Swap
+    // Spaceship
+    // ==, !=
+    // Then make these functions so far actually work efficiently
+
+    //////////////
     // for the moment
     //////////////
     SString8(const SString8& /*rhs*/) noexcept = delete;
@@ -209,6 +242,27 @@ CONSTEXPR SString8::SString8(const CharT* s, size_type count)
     std::swap(*this, tempstr);
 }
 
+CONSTEXPR SString8::SString8(const CharT* s)
+{
+    std::string tempstdstr(s);
+    auto tempstr = SString8(tempstdstr);
+    std::swap(*this, tempstr);
+}
+
+template<class InputIt>
+CONSTEXPR SString8::SString8(InputIt first, InputIt last)
+{
+    std::string tempstdstr(first, last);
+    auto tempstr = SString8(tempstdstr);
+    std::swap(*this, tempstr);
+}
+
+CONSTEXPR SString8::SString8(std::initializer_list<CharT> ilist)
+{
+    std::string tempstdstr(ilist);
+    auto tempstr = SString8(tempstdstr);
+    std::swap(*this, tempstr);
+}
 
 
 CONSTEXPR const SString8::CharT* SString8::data() const noexcept
