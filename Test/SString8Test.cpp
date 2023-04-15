@@ -3,7 +3,6 @@
 
 #include "UnitTest.h"
 
-
 namespace
 {
 #define testAreEqual(lhs, rhs) \
@@ -36,8 +35,6 @@ TEST(String8TestDefaultConstructor)
 	std::string str2;
 	testAreEqual(str1, str2);
 }
-
-
 
 TEST(String8TestConstructorCountChar)
 {
