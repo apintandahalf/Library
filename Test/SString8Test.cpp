@@ -161,7 +161,39 @@ TEST(String8TestConstructorOtherPosCount)
 	}
 }
 
-//CONSTEXPR SString8::SString8(const CharT* s, size_type count)
+TEST(String8TestConstructorCharStarCount)
+{
+	//SString8(const CharT* s, size_type count)
+	const std::string stdstr(std::string_view("abcdefghijklmnop"));
+	const SString8 sstr(stdstr);
+	assertAreEqual(sstr, stdstr);
+
+	const auto pStdData = stdstr.data();
+	for (size_t c = 0; c < stdstr.length(); ++c)
+	{
+		const auto str1 = SString8(pStdData, c);
+		const auto str2 = std::string(pStdData, c);
+		testAreEqual(str1, str2);
+	}
+}
+
+TEST(String8TestConstructorCharStar)
+{
+	//SString8(const CharT* s)
+	const std::string stdstr(std::string_view("abcdefghijklmnop"));
+	const SString8 sstr(stdstr);
+	assertAreEqual(sstr, stdstr);
+
+	for (size_t c = 0; c < stdstr.length(); ++c)
+	{
+		const auto str0 = std::string(stdstr.data(), c);
+		const auto pStdData = str0.data();
+		const auto str1 = SString8(pStdData);
+		const auto str2 = std::string(pStdData);
+		testAreEqual(str1, str2);
+	}
+}
+
 
 int SString8Test::Test()
 {

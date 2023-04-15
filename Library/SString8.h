@@ -15,21 +15,23 @@ public:
 
     SString8(std::nullptr_t) = delete;
 
-    CONSTEXPR SString8() noexcept;
+    CONSTEXPR SString8() noexcept; // tested by String8TestDefaultConstructor
 
-    SString8(std::string_view str);
-    SString8(const std::string& str);
-    std::string_view asStringView() const;
+    SString8(std::string_view str); // tested by String8TestConstructorStringView
+    SString8(const std::string& str); // tested by String8TestConstructorString
+    std::string_view asStringView() const; // tested by String8TestAsStringView
 
-    CONSTEXPR SString8(size_type count, CharT ch);
+    CONSTEXPR SString8(size_type count, CharT ch); // tested by String8TestConstructorCountChar
 
-    CONSTEXPR SString8(const SString8& other, size_type pos);
+    CONSTEXPR SString8(const SString8& other, size_type pos); // tested by String8TestConstructorOtherPos
 
-    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count);
+    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // tested by String8TestConstructorOtherPosCount
 
-    CONSTEXPR SString8(const CharT* s, size_type count);
+    CONSTEXPR SString8(const CharT* s, size_type count); // tested by String8TestConstructorCharStarCount
 
-        //////////////
+    CONSTEXPR SString8(const CharT* s); // tested by String8TestConstructorCharStar
+
+    //////////////
     // for the moment
     //////////////
     SString8(const SString8& /*rhs*/) noexcept = delete;
@@ -205,6 +207,13 @@ CONSTEXPR SString8::SString8(const SString8& other, size_type pos)
 CONSTEXPR SString8::SString8(const CharT* s, size_type count)
 {
     std::string tempstdstr(s, count);
+    auto tempstr = SString8(tempstdstr);
+    std::swap(*this, tempstr);
+}
+
+CONSTEXPR SString8::SString8(const CharT* s)
+{
+    std::string tempstdstr(s);
     auto tempstr = SString8(tempstdstr);
     std::swap(*this, tempstr);
 }
