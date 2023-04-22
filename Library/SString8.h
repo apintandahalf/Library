@@ -106,7 +106,7 @@ struct SString8Data
     }
 
     SString8Data() = default;
-    SString8Data(const SString8Data& rhs)
+    SString8Data(const SString8Data& rhs) // test - SString8DataTestConstructorCopy
     {
         const auto len = rhs.size();
         if (len <= 7)
@@ -123,18 +123,22 @@ struct SString8Data
             // size and capacity ?
         }
     }
-    SString8Data& operator=(SString8Data rhs)
+    SString8Data& operator=(const SString8Data& rhs) // test SString8DataTestAssignement
+    {
+        auto temp(rhs);
+        swap(temp);
+        return *this;
+    }
+
+    SString8Data(SString8Data&& rhs) // test - SString8DataTestConstructorMove
     {
         swap(rhs);
     }
 
-    SString8Data(SString8Data&& rhs)
+    SString8Data& operator=(SString8Data&& rhs) // test - SString8DataTestAssignementMove
     {
         swap(rhs);
-    }
-    SString8Data& operator=(SString8Data&& rhs)
-    {
-        swap(rhs);
+        return *this;
     }
 
     ~SString8Data()
@@ -143,7 +147,7 @@ struct SString8Data
             delete[] getAsPtr();
     }
 
-    SString8Data(std::string_view rhs)
+    SString8Data(std::string_view rhs) // test - SString8DataTestConstructorStringView
     {
         const auto len = rhs.size();
         if (len <= 7)
