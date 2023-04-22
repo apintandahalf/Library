@@ -27,7 +27,7 @@ int tests_ran = 0;
 	WRAP (if (!(a)) { REPORT << "!" << #a "\n"; fails += 1; } )
 
 #define EXPECT_FALSE(a) \
-	WRAP (if (a) { REPORT << << #a "\n"; fails += 1; } )
+	WRAP (if (a) { REPORT << #a "\n"; fails += 1; } )
 
 #define ASSERT_EQ(a,b) \
 	WRAP (if (!((a) == (b))) { REPORT << #a << " == " #b << "\n"; fails += 1; return; } )
@@ -39,7 +39,7 @@ int tests_ran = 0;
 	WRAP (if (!(a)) { REPORT << "!" << #a "\n"; fails += 1; return; } )
 
 #define ASSERT_FALSE(a) \
-	WRAP (if (a) { REPORT << << #a "\n"; fails += 1; return; } )
+	WRAP (if (a) { REPORT << #a "\n"; fails += 1; return; } )
 
 std::vector<std::function<void()>> fns;
 bool registerTestFn(std::function<void()> fn)
@@ -84,12 +84,18 @@ int runAllTests()
 	tests_ran = 0;
 
 	for (auto& fn : fns)
+	{
 		fn();
+	}
 
 	if (fails)
+	{
 		std::cout << RED_TEXT_START << "Ran " << tests_ran << " tests and " << tests_failed << " failed" << COLOUR_TEXT_END << "\n";
+	}
 	else
+	{
 		std::cout << GREEN_TEXT_START << "Ran " << tests_ran << " tests and none failed" << COLOUR_TEXT_END << "\n";
+	}
 
 	return fails;
 }

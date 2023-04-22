@@ -3,6 +3,8 @@
 
 #include "UnitTest.h"
 
+#include<iostream>
+
 namespace
 {
 #define testAreEqual(lhs, rhs) \
@@ -82,6 +84,9 @@ TEST(String8TestConstructorStringView)
 		const auto str1 = SString8(str);
 		const auto str2 = std::string(str);
 		testAreEqual(str1, str2);
+		auto pStr1 = str1.data();
+		auto pStr2 = str2.data();
+		EXPECT_EQ(0, strcmp(pStr1, pStr2));
 	}
 }
 
@@ -210,13 +215,14 @@ TEST(String8TestConstructorInitialiserList)
 	testAreEqual(str1, str2);
 }
 
+
 namespace
 {
 	struct StringViewLike
 	{
-		SString8 m_Str;
+		std::string m_Str;
 		StringViewLike(std::string str) : m_Str(str) {}
-		operator std::string_view() const { return m_Str.asStringView(); }
+		operator std::string_view() const { return m_Str.operator std::basic_string_view<char, std::char_traits<char>>(); }
 		operator const char* () const = delete;
 		size_t length() const { return m_Str.length(); }
 	};
@@ -228,6 +234,9 @@ TEST(String8TestConstructorStringViewLike)
 	const std::string str1(str);
 	const SString8 str2(str);
 	testAreEqual(str1, str2);
+	auto pStr1 = str1.data();
+	auto pStr2 = str2.data();
+	EXPECT_EQ(0, strcmp(pStr1, pStr2));
 }
 
 TEST(String8TestConstructorStringViewLikePosN)
@@ -310,7 +319,107 @@ TEST(CppReferenceConstructorTests)
 	}
 }
 
+
+TEST(SString8DataTestGetSetPtr)
+{
+	{
+		SString8Data data;
+		EXPECT_TRUE(data.isBuffer());
+
+		const auto shortStr = "1234567";
+		strcpy(data.m_Storage.m_Buffer.m_Buffer, shortStr);
+		EXPECT_EQ(0, strcmp(data.m_Storage.m_Buffer.m_Buffer, shortStr));
+	}
+
+	{
+		const auto longStr = new char[9] {'1','2','3','4','5','6','7','8','\0'};
+
+		SString8Data data;
+		data.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(longStr);
+		EXPECT_EQ(reinterpret_cast<char*>(data.m_Storage.m_Large.m_pStr), longStr);
+
+		data.setLarge();
+		EXPECT_FALSE(data.isBuffer());
+		EXPECT_NE(reinterpret_cast<char*>(data.m_Storage.m_Large.m_pStr), longStr);
+		EXPECT_EQ(data.getAsPtr(), longStr);
+		const auto pStr = data.getAsPtr();
+		EXPECT_EQ(0, strcmp(pStr, longStr));
+	}
+	std::string_view shorttext = "abcdefg";
+	std::string_view longtext = "abcdefghijklmnopqrstuvwxyz";
+	{
+		for (const auto& txt : { longtext })
+		{
+			for (auto i = 0U; i < txt.size(); ++i)
+			{
+				std::basic_string_view sub(txt.data(), txt.data() + i);
+				std::string substr(sub);
+				SString8Data str(sub);
+				auto pStr1 = substr.data();
+				auto pStr2 = str.data();
+				EXPECT_EQ(0, strcmp(pStr1, pStr2));
+			}
+		}
+	}
+	{
+		for (const auto& txt : { longtext })
+		{
+			for (auto i = 0U; i < txt.size(); ++i)
+			{
+				std::basic_string_view sub(txt.data(), txt.data() + i);
+				SString8Data str1(sub);
+				SString8Data str2(str1);
+				auto pStr1 = str1.data();
+				auto pStr2 = str2.data();
+				EXPECT_EQ(0, strcmp(pStr1, pStr2));
+			}
+		}
+	}
+	{
+		for (const auto& txt : { shorttext })
+		{
+			for (auto i = 0U; i < txt.size(); ++i)
+			{
+				std::basic_string_view sub(txt.data(), txt.data() + i);
+				std::string str(sub);
+				SString8Data str1(sub);
+				SString8Data str2(std::move(str1));
+				auto pStr1 = str.data();
+				auto pStr2 = str2.data();
+				EXPECT_EQ(0, strcmp(pStr1, pStr2));
+			}
+		}
+		for (const auto& txt : { longtext })
+		{
+			for (auto i = shorttext.size(); i < txt.size(); ++i)
+			{
+				std::basic_string_view sub(txt.data(), txt.data() + i);
+				std::string str(sub);
+				SString8Data str1(sub);
+				SString8Data str2(std::move(str1));
+				auto pStr1 = str.data();
+				auto pStr2 = str2.data();
+				EXPECT_EQ(0, strcmp(pStr1, pStr2));
+			}
+		}
+	}
+}
+
 int SString8Test::Test()
 {
+	{
+#pragma warning( push )
+#pragma warning( disable : 4127)
+		if      (__cplusplus == 202101L) std::cout << "C++23\n";
+		else if (__cplusplus == 202002L) std::cout << "C++20\n";
+		else if (__cplusplus == 201703L) std::cout << "C++17\n";
+		else if (__cplusplus == 201402L) std::cout << "C++14\n";
+		else if (__cplusplus == 201103L) std::cout << "C++11\n";
+		else if (__cplusplus == 199711L) std::cout << "C++98\n";
+		else std::cout << "pre-standard C++." << __cplusplus << "\n";
+#pragma warning( pop ) 
+	}
+
 	return runAllTests();
+
 }
