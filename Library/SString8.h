@@ -6,6 +6,7 @@
 
 #define CONSTEXPR // I'm not doing constexpr or allocators for the time being
 
+/** Abstraction of the storage.  Not intended to be used in isolation */
 struct SString8Data
 {
     struct Large
@@ -28,14 +29,13 @@ struct SString8Data
         };
     } m_Storage;
 
-    static constexpr auto top = 1ULL << 63U;
-    static constexpr auto notTop = ~top;
+    static inline constexpr auto top = 1ULL << 63U;
+    static inline constexpr auto notTop = ~top;
 
     inline bool isBuffer() const
     {
         // highest bit is 1 if it is a pointer, 0 if it is a buffer
-        auto b = (m_Storage.m_Large.m_pStr & top) == 0;
-        return b;
+        return (m_Storage.m_Large.m_pStr & top) == 0;
     }
 
     inline void setBuffer()
@@ -61,51 +61,35 @@ struct SString8Data
 
     inline void swap(SString8Data& rhs)
     {
-        const auto tmp = m_Storage.m_Large.m_pStr;
-        m_Storage.m_Large.m_pStr = rhs.m_Storage.m_Large.m_pStr;
-        rhs.m_Storage.m_Large.m_pStr = tmp;
+        std::swap(m_Storage.m_Large.m_pStr, rhs.m_Storage.m_Large.m_pStr);
     }
 
     size_t size() const
     {
         if (isBuffer())
-        {
-            // std::find ?
-            return strlen(m_Storage.m_Buffer.m_Buffer);
-        }
-        else
-        {
-            const auto ptr = getAsPtr();
-            const auto len = strlen(ptr);
-            return len;
-        }
+            return strlen(m_Storage.m_Buffer.m_Buffer); // std::find ?
+
+        return strlen(getAsPtr());
     }
 
     inline const char* data() const noexcept
     {
         if (isBuffer())
-        {
             return m_Storage.m_Buffer.m_Buffer;
-        }
-        else
-        {
-            return getAsPtr();
-        }
+
+        return getAsPtr();
     }
 
     inline char* data() noexcept
     {
         if (isBuffer())
-        {
             return m_Storage.m_Buffer.m_Buffer;
-        }
-        else
-        {
-            return getAsPtr();
-        }
+
+        return getAsPtr();
     }
 
     SString8Data() = default;
+
     SString8Data(const SString8Data& rhs) // test - SString8DataTestConstructorCopy
     {
         const auto len = rhs.size();
@@ -123,22 +107,16 @@ struct SString8Data
             // size and capacity ?
         }
     }
-    SString8Data& operator=(const SString8Data& rhs) // test SString8DataTestAssignement
-    {
-        auto temp(rhs);
-        swap(temp);
-        return *this;
-    }
 
-    SString8Data(SString8Data&& rhs) // test - SString8DataTestConstructorMove
-    {
-        swap(rhs);
-    }
-
-    SString8Data& operator=(SString8Data&& rhs) // test - SString8DataTestAssignementMove
+    SString8Data& operator=(SString8Data rhs) // test SString8DataTestAssignement
     {
         swap(rhs);
         return *this;
+    }
+
+    SString8Data(SString8Data&& rhs) noexcept // test - SString8DataTestConstructorMove
+    {
+        swap(rhs);
     }
 
     ~SString8Data()
@@ -187,14 +165,22 @@ public:
     CONSTEXPR SString8(size_type count, CharT ch); // tested by String8TestConstructorCountChar
 
     CONSTEXPR SString8(const SString8& other, size_type pos); // tested by String8TestConstructorOtherPos
+    CONSTEXPR SString8(const std::string& other, size_type pos); // tested by String8TestConstructorOtherPos
 
     CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // tested by String8TestConstructorOtherPosCount
+    CONSTEXPR SString8(const std::string& other, size_type pos, size_type count); // tested by String8TestConstructorOtherPosCount
 
     CONSTEXPR SString8(const CharT* s, size_type count); // tested by String8TestConstructorCharStarCount
 
     CONSTEXPR SString8(const CharT* s); // tested by String8TestConstructorCharStar
 
-    template<class InputIt> SString8(InputIt first, InputIt last); // tested by String8TestConstructorInputItFirstLast
+    template<class InputIt>
+    SString8(InputIt first, InputIt last) // tested by String8TestConstructorInputItFirstLast
+    {
+        std::string tempstdstr(first, last);
+        auto tempstr = SString8(tempstdstr);
+        swap(tempstr);
+    }
 
     CONSTEXPR SString8(std::initializer_list<CharT> ilist); // tested by String8TestConstructorInitialiserList
 
@@ -220,35 +206,27 @@ public:
     }
 #endif
 
-    void swap(SString8& rhs) // @TOTEST
+    inline void swap(SString8& rhs) // tested by SString8TestSwap
     {
         m_Storage.swap(rhs.m_Storage);
     }
-    friend void swap(SString8& lhs, SString8& rhs) // @TOTEST
+    inline friend void swap(SString8& lhs, SString8& rhs) // tested by SString8TestSwap
     {
         lhs.swap(rhs);
     }
 
 
-        // Next up:
-    // Rule of 5 (copy constructor by value with swap)
-    // Swap
+    // Next up:
     // Spaceship
     // ==, !=
     // Then make these functions so far actually work efficiently
 
-    //////////////
-    // for the moment
-    //////////////
-    SString8(const SString8& /*rhs*/) noexcept = delete;
-    SString8& operator=(const SString8& /*rhs*/) noexcept = delete;
-    SString8(SString8&& /*rhs*/) noexcept = default;
-    SString8& operator=(SString8&& /*rhs*/) noexcept = default;
-    //////////////
-    // for the moment
-    //////////////
+    SString8(const SString8& /*rhs*/) = default; // SString8TestConstructorCopy
+    SString8& operator=(const SString8& /*rhs*/) = default; // SString8TestAssignment
+    SString8(SString8&& /*rhs*/) noexcept = default; // SString8TestConstructorMove
+    SString8& operator=(SString8&& /*rhs*/) noexcept = default; // SString8TestAssignmentMove
 
-    //~SString8() noexcept = default;
+    ~SString8() noexcept = default;
 
     // data and length
     CONSTEXPR const CharT* data() const noexcept;
@@ -265,21 +243,22 @@ private:
     {
         return m_Storage.isBuffer();
     }
-    void setBuffer()
+
+    inline void setBuffer()
     {
         m_Storage.setBuffer();
     }
 
-    void setLarge()
+    inline void setLarge()
     {
         m_Storage.setLarge();
     }
 
-    char* getAsPtr()
+    inline char* getAsPtr()
     {
         return m_Storage.getAsPtr();
     }
-    const char* getAsPtr() const
+    inline const char* getAsPtr() const
     {
         return m_Storage.getAsPtr();
     }
@@ -292,129 +271,3 @@ private:
         return &empty;
     }*/
 };
-
-// implementation - move to cpp?
-#include <cstring>
-#include <string>
-
-//CONSTEXPR SString8::SString8() noexcept
-//{
-//    m_Storage.m_Large.m_pStr = 0;
-//}
-
-std::string_view SString8::asStringView() const
-{
-    return { data(), length() };
-}
-
-CONSTEXPR SString8::SString8(std::string_view str)
-{
-    const auto len = str.length();
-    if (len <= 7)
-    {
-        m_Storage.m_Storage.m_Large.m_pStr = 0;
-        memcpy(m_Storage.m_Storage.m_Buffer.m_Buffer, str.data(), len);
-        // size and capacity ?
-    }
-    else
-    {
-        auto ptr = new char[len + 1];
-        strncpy_s(ptr, len + 1, str.data(), len);
-        ptr[len] = '\0';
-        m_Storage.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(ptr);
-        setLarge();
-        // size and capacity ?
-    }
-}
-
-CONSTEXPR SString8::SString8(const std::string& str)
-  : SString8(str.operator std::basic_string_view<char, std::char_traits<char>>())
-{
-}
-
-CONSTEXPR SString8::SString8(size_type count, CharT ch)
-{
-    if (count <= 7)
-    {
-        m_Storage.m_Storage.m_Large.m_pStr = 0;
-        for (size_type i = 0; i < count; ++i)
-            m_Storage.m_Storage.m_Buffer.m_Buffer[i] = ch;
-        // size and capacity ?
-    }
-    else
-    {
-        auto ptr = new char[count + 1];
-        for (size_type i = 0; i < count; ++i)
-            ptr[i] = ch;
-        ptr[count] = '\0';
-        m_Storage.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(ptr);
-        setLarge();
-        // size and capacity ?
-    }
-}
-
-CONSTEXPR SString8::SString8(const SString8& other, size_type pos, size_type count)
-{
-    // Constructs the string with a substring [pos, pos + count) of other. If count == npos, if count is not specified, or if the requested substring lasts past the end of the string, the resulting substring is [pos, other.size())
-    std::string tempstdstr(std::string(other.asStringView()), pos, count);
-    auto tempstr = SString8(tempstdstr);
-    swap(tempstr);
-}
-
-CONSTEXPR SString8::SString8(const SString8& other, size_type pos)
-{
-    // Constructs the string with a substring [pos, pos + count) of other. If count == npos, if count is not specified, or if the requested substring lasts past the end of the string, the resulting substring is [pos, other.size())
-    std::string tempstdstr(std::string(other.asStringView()), pos);
-    auto tempstr = SString8(tempstdstr);
-    swap(tempstr);
-}
-
-CONSTEXPR SString8::SString8(const CharT* s, size_type count)
-{
-    std::string tempstdstr(s, count);
-    auto tempstr = SString8(tempstdstr);
-    swap(tempstr);
-}
-
-CONSTEXPR SString8::SString8(const CharT* s)
-{
-    std::string tempstdstr(s);
-    auto tempstr = SString8(tempstdstr);
-    swap(tempstr);
-}
-
-template<class InputIt>
-CONSTEXPR SString8::SString8(InputIt first, InputIt last)
-{
-    std::string tempstdstr(first, last);
-    auto tempstr = SString8(tempstdstr);
-    swap(tempstr);
-}
-
-CONSTEXPR SString8::SString8(std::initializer_list<CharT> ilist)
-{
-    std::string tempstdstr(ilist);
-    auto tempstr = SString8(tempstdstr);
-    swap(tempstr);
-}
-
-
-CONSTEXPR const SString8::CharT* SString8::data() const noexcept
-{
-    return m_Storage.data();
-}
-
-CONSTEXPR SString8::CharT* SString8::data() noexcept
-{
-    return m_Storage.data();
-}
-
-CONSTEXPR SString8::size_type SString8::size() const noexcept
-{
-    return m_Storage.size();
-}
-
-CONSTEXPR SString8::size_type SString8::length() const noexcept
-{
-    return size();
-}

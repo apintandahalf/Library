@@ -1,7 +1,6 @@
 #include "SString8.h"
-#include "SString8Test.h"
 
-#include "../../UTest/UnitTest.h"
+#include "UnitTest.h"
 
 namespace
 {
@@ -28,6 +27,7 @@ namespace
 	} while (false)
 
 }
+
 
 TEST(String8TestDefaultConstructor)
 {
@@ -142,8 +142,10 @@ TEST(String8TestConstructorOtherPos)
 	for (size_t pos = 0; pos < stdstr.length(); ++pos)
 	{
 		const auto str1 = SString8(sstr, pos);
-		const auto str2 = std::string(stdstr, pos);
+		const auto str2 = SString8(stdstr, pos);
+		const auto str3 = std::string(stdstr, pos);
 		testAreEqual(str1, str2);
+		testAreEqual(str1, str3);
 	}
 }
 
@@ -158,8 +160,10 @@ TEST(String8TestConstructorOtherPosCount)
 		for (size_t c = 0; c < stdstr.length(); ++c)
 		{
 			const auto str1 = SString8(sstr, pos, c);
-			const auto str2 = std::string(stdstr, pos, c);
+			const auto str2 = SString8(stdstr, pos, c);
+			const auto str3 = std::string(stdstr, pos, c);
 			testAreEqual(str1, str2);
+			testAreEqual(str1, str3);
 		}
 	}
 }
@@ -214,6 +218,8 @@ TEST(String8TestConstructorInitialiserList)
 }
 
 
+#if __cplusplus >= 202002L
+
 namespace
 {
 	struct StringViewLike
@@ -252,9 +258,10 @@ TEST(String8TestConstructorStringViewLikePosN)
 	}
 }
 
+#endif
 
 
-TEST(CppReferenceConstructorTests)
+TEST(String8TestCppReferenceConstructorTests)
 {
 	{
 		std::string s1;
@@ -317,175 +324,152 @@ TEST(CppReferenceConstructorTests)
 	}
 }
 
-
-TEST(SString8DataTestGetSetPtr)
+TEST(SString8TestSwap)
 {
+	const auto strs = { "", "1", "1234567", "1234568" };
+	for (const std::string_view str1 : strs)
 	{
-		SString8Data data;
-		EXPECT_TRUE(data.isBuffer());
-
-		const auto shortStr = "1234567";
-		strcpy(data.m_Storage.m_Buffer.m_Buffer, shortStr);
-		EXPECT_EQ(0, strcmp(data.m_Storage.m_Buffer.m_Buffer, shortStr));
+		for (const std::string_view str2 : strs)
+		{
+			SString8 s1(str1);
+			SString8 s2(str2);
+			EXPECT_EQ(strcmp(s1.data(), str1.data()), 0);
+			EXPECT_EQ(strcmp(s2.data(), str2.data()), 0);
+			s1.swap(s2);
+			EXPECT_EQ(strcmp(s1.data(), str2.data()), 0);
+			EXPECT_EQ(strcmp(s2.data(), str1.data()), 0);
+		}
 	}
-
+	for (const std::string_view str1 : strs)
 	{
-		const auto longStr = new char[9] {'1', '2', '3', '4', '5', '6', '7', '8', '\0'};
-
-		SString8Data data;
-		data.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(longStr);
-		EXPECT_EQ(reinterpret_cast<char*>(data.m_Storage.m_Large.m_pStr), longStr);
-
-		data.setLarge();
-		EXPECT_FALSE(data.isBuffer());
-		EXPECT_NE(reinterpret_cast<char*>(data.m_Storage.m_Large.m_pStr), longStr);
-		EXPECT_EQ(data.getAsPtr(), longStr);
-		const auto pStr = data.getAsPtr();
-		EXPECT_EQ(0, strcmp(pStr, longStr));
+		for (const std::string_view str2 : strs)
+		{
+			SString8 s1(str1);
+			SString8 s2(str2);
+			EXPECT_EQ(strcmp(s1.data(), str1.data()), 0);
+			EXPECT_EQ(strcmp(s2.data(), str2.data()), 0);
+			swap(s1, s2);
+			EXPECT_EQ(strcmp(s1.data(), str2.data()), 0);
+			EXPECT_EQ(strcmp(s2.data(), str1.data()), 0);
+		}
 	}
 }
+
 namespace
 {
 	std::string_view shorttext = "abcdefg";
 	std::string_view longtext = "abcdefghijklmnopqrstuvwxyz";
 }
-TEST(SString8DataTestConstructorStringView)
+TEST(SString8TestConstructorCopy)
 {
+	for (const auto& txt : { longtext })
 	{
-		for (const auto& txt : { longtext })
+		for (auto i = 0U; i < txt.size(); ++i)
 		{
-			for (auto i = 0U; i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string substr(sub);
-				SString8Data str(sub);
-				auto pStr1 = substr.data();
-				auto pStr2 = str.data();
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-	}
-}
-TEST(SString8DataTestConstructorCopy)
-{
-	{
-		for (const auto& txt : { longtext })
-		{
-			for (auto i = 0U; i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				SString8Data str1(sub);
-				SString8Data str2(str1);
-				auto pStr1 = str1.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-	}
-}
-TEST(SString8DataTestConstructorMove)
-{
-	{
-		for (const auto& txt : { shorttext })
-		{
-			for (auto i = 0U; i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string str(sub);
-				SString8Data str1(sub);
-				SString8Data str2(std::move(str1));
-				auto pStr1 = str.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-		for (const auto& txt : { longtext })
-		{
-			for (auto i = shorttext.size(); i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string str(sub);
-				SString8Data str1(sub);
-				SString8Data str2(std::move(str1));
-				auto pStr1 = str.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-	}
-}
-TEST(SString8DataTestAssignement)
-{
-	{
-		for (const auto& txt : { shorttext })
-		{
-			for (auto i = 0U; i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string str(sub);
-				SString8Data str1(sub);
-				SString8Data str2(longtext);
-				str2 = str1;
-				auto pStr0 = str.data();
-				auto pStr1 = str1.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr0, pStr2));
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-		for (const auto& txt : { longtext })
-		{
-			for (auto i = shorttext.size(); i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string str(sub);
-				SString8Data str1(sub);
-				SString8Data str2(longtext);
-				str2 = str1;
-				auto pStr0 = str.data();
-				auto pStr1 = str1.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr0, pStr2));
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-	}
-}
-TEST(SString8DataTestAssignementMove)
-{
-	{
-		for (const auto& txt : { shorttext })
-		{
-			for (auto i = 0U; i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string str(sub);
-				SString8Data str1(sub);
-				SString8Data str2(longtext);
-				str2 = std::move(str1);
-				auto pStr1 = str.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
-		}
-		for (const auto& txt : { longtext })
-		{
-			for (auto i = shorttext.size(); i < txt.size(); ++i)
-			{
-				std::string_view sub(txt.data(), txt.data() + i);
-				std::string str(sub);
-				SString8Data str1(sub);
-				SString8Data str2(longtext);
-				str2 = std::move(str1);
-				auto pStr1 = str.data();
-				auto pStr2 = str2.data();
-				EXPECT_EQ(0, strcmp(pStr1, pStr2));
-			}
+			std::string_view sub(txt.data(), txt.data() + i);
+			SString8 str1(sub);
+			SString8 str2(str1);
+			auto pStr1 = str1.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
 		}
 	}
 }
 
-int SString8Test::Test()
+TEST(SString8TestAssignment)
 {
-	return UTest::runAllTests();
+	for (const auto& txt : { shorttext })
+	{
+		for (auto i = 0U; i < txt.size(); ++i)
+		{
+			std::string_view sub(txt.data(), txt.data() + i);
+			std::string str(sub);
+			SString8 str1(sub);
+			SString8 str2(longtext);
+			str2 = str1;
+			auto pStr0 = str.data();
+			auto pStr1 = str1.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr0, pStr2));
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
+		}
+	}
+	for (const auto& txt : { longtext })
+	{
+		for (auto i = shorttext.size(); i < txt.size(); ++i)
+		{
+			std::string_view sub(txt.data(), txt.data() + i);
+			std::string str(sub);
+			SString8 str1(sub);
+			SString8 str2(longtext);
+			str2 = str1;
+			auto pStr0 = str.data();
+			auto pStr1 = str1.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr0, pStr2));
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
+		}
+	}
+}
+
+TEST(SString8TestConstructorMove)
+{
+	for (const auto& txt : { shorttext })
+	{
+		for (auto i = 0U; i < txt.size(); ++i)
+		{
+			std::string_view sub(txt.data(), txt.data() + i);
+			std::string str(sub);
+			SString8 str1(sub);
+			SString8 str2(std::move(str1));
+			auto pStr1 = str.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
+		}
+	}
+	for (const auto& txt : { longtext })
+	{
+		for (auto i = shorttext.size(); i < txt.size(); ++i)
+		{
+			std::string_view sub(txt.data(), txt.data() + i);
+			std::string str(sub);
+			SString8 str1(sub);
+			SString8 str2(std::move(str1));
+			auto pStr1 = str.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
+		}
+	}
+}
+
+TEST(SString8TestAssignmentMove)
+{
+	for (const auto& txt : { shorttext })
+	{
+		for (auto i = 0U; i < txt.size(); ++i)
+		{
+			std::string_view sub(txt.data(), txt.data() + i);
+			std::string str(sub);
+			SString8 str1(sub);
+			SString8 str2(longtext);
+			str2 = std::move(str1);
+			auto pStr1 = str.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
+		}
+	}
+	for (const auto& txt : { longtext })
+	{
+		for (auto i = shorttext.size(); i < txt.size(); ++i)
+		{
+			std::string_view sub(txt.data(), txt.data() + i);
+			std::string str(sub);
+			SString8 str1(sub);
+			SString8 str2(longtext);
+			str2 = std::move(str1);
+			auto pStr1 = str.data();
+			auto pStr2 = str2.data();
+			EXPECT_EQ(0, strcmp(pStr1, pStr2));
+		}
+	}
 }
