@@ -21,16 +21,10 @@
     <ClCompile Include="SString8Test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="UnitTest.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SString8Test.h">
       <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="UnitTest.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

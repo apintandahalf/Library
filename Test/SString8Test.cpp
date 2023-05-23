@@ -1,9 +1,7 @@
 #include "SString8.h"
 #include "SString8Test.h"
 
-#include "UnitTest.h"
-
-#include<iostream>
+#include "../../UTest/UnitTest.h"
 
 namespace
 {
@@ -489,19 +487,5 @@ TEST(SString8DataTestAssignementMove)
 
 int SString8Test::Test()
 {
-	{
-#pragma warning( push )
-#pragma warning( disable : 4127)
-		if      (__cplusplus == 202101L) std::cout << "C++23\n";
-		else if (__cplusplus == 202002L) std::cout << "C++20\n";
-		else if (__cplusplus == 201703L) std::cout << "C++17\n";
-		else if (__cplusplus == 201402L) std::cout << "C++14\n";
-		else if (__cplusplus == 201103L) std::cout << "C++11\n";
-		else if (__cplusplus == 199711L) std::cout << "C++98\n";
-		else std::cout << "pre-standard C++." << __cplusplus << "\n";
-#pragma warning( pop ) 
-	}
-
-	return runAllTests();
-
+	return UTest::runAllTests();
 }

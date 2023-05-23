@@ -163,11 +163,9 @@
   <ItemGroup>
     <ClCompile Include="SString8Test.cpp" />
     <ClCompile Include="Test.cpp" />
-    <ClCompile Include="UnitTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SString8Test.h" />
-    <ClInclude Include="UnitTest.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Library\Library.vcxproj">
