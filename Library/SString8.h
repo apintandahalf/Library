@@ -87,11 +87,11 @@ struct SString8Data
 
 public:
     SString8Data(const SString8Data& rhs) // test - SString8DataTestConstructorCopy
-        : SString8Data(CharStarLenPr{ rhs.data(), rhs.size() })
+        : SString8Data(rhs.data(), rhs.size())
     {
     }
 
-    SString8Data& operator=(SString8Data rhs) noexcept // test SString8DataTestAssignement
+    SString8Data& operator=(SString8Data rhs) noexcept // test - SString8DataTestAssignement
     {
         swap(rhs);
         return *this;
@@ -109,19 +109,16 @@ public:
     }
 
     SString8Data(std::string_view rhs) // test - SString8DataTestConstructorStringView
-        : SString8Data(CharStarLenPr{ rhs.data(), rhs.size() })
+        : SString8Data(rhs.data(), rhs.size())
     {
     }
 
-private:
-    struct CharStarLenPr
+    /**
+    Assumes that len is the number of chars pointed to by pRhs, not including any null terminator.  
+    Null terminator not required
+    */
+    SString8Data(const char* pRhs, size_t len)
     {
-        const char* pStr;
-        size_t len;
-    };
-    SString8Data(CharStarLenPr data)
-    {
-        const auto [pRhs, len] = data;
         if (len <= 7)
         {
             strncpy(m_Storage.m_Buffer.m_Buffer, pRhs, len);
@@ -149,39 +146,39 @@ public:
 
     SString8(std::nullptr_t) = delete;
 
-    CONSTEXPR SString8() noexcept = default; // tested by String8TestDefaultConstructor
+    CONSTEXPR SString8() noexcept = default; // test - String8TestDefaultConstructor
 
-    SString8(std::string_view str); // tested by String8TestConstructorStringView
-    SString8(const std::string& str); // tested by String8TestConstructorString
-    std::string_view asStringView() const; // tested by String8TestAsStringView
+    SString8(std::string_view str); // test - String8TestConstructorStringView
+    SString8(const std::string& str); // test - String8TestConstructorString
+    std::string_view asStringView() const; // test - String8TestAsStringView
 
-    CONSTEXPR SString8(size_type count, CharT ch); // tested by String8TestConstructorCountChar
+    CONSTEXPR SString8(size_type count, CharT ch); // test - String8TestConstructorCountChar
 
-    CONSTEXPR SString8(const SString8& other, size_type pos); // tested by String8TestConstructorOtherPos
-    CONSTEXPR SString8(const std::string& other, size_type pos); // tested by String8TestConstructorOtherPos
+    CONSTEXPR SString8(const SString8& other, size_type pos); // test - String8TestConstructorOtherPos
+    CONSTEXPR SString8(const std::string& other, size_type pos); // test - String8TestConstructorOtherPos
 
-    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // tested by String8TestConstructorOtherPosCount
-    CONSTEXPR SString8(const std::string& other, size_type pos, size_type count); // tested by String8TestConstructorOtherPosCount
+    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // test - String8TestConstructorOtherPosCount
+    CONSTEXPR SString8(const std::string& other, size_type pos, size_type count); // test - String8TestConstructorOtherPosCount
 
-    CONSTEXPR SString8(const CharT* s, size_type count); // tested by String8TestConstructorCharStarCount
+    CONSTEXPR SString8(const CharT* s, size_type count); // test - String8TestConstructorCharStarCount
 
-    CONSTEXPR SString8(const CharT* s); // tested by String8TestConstructorCharStar
+    CONSTEXPR SString8(const CharT* s); // test - String8TestConstructorCharStar
 
     template<class InputIt>
-    SString8(InputIt first, InputIt last) // tested by String8TestConstructorInputItFirstLast
+    SString8(InputIt first, InputIt last) // test - String8TestConstructorInputItFirstLast
     {
         std::string tempstdstr(first, last);
         auto tempstr = SString8(tempstdstr);
         swap(tempstr);
     }
 
-    CONSTEXPR SString8(std::initializer_list<CharT> ilist); // tested by String8TestConstructorInitialiserList
+    CONSTEXPR SString8(std::initializer_list<CharT> ilist); // test - String8TestConstructorInitialiserList
 
 #if __cplusplus >= 202002L
     template<class StringViewLike>
         requires std::is_convertible_v<const StringViewLike&, std::basic_string_view<CharT>>
         && !std::is_convertible_v<const StringViewLike&, const CharT*>
-    CONSTEXPR explicit SString8(const StringViewLike& t) //  tested by String8TestConstructorStringViewLike
+    CONSTEXPR explicit SString8(const StringViewLike& t) //  test - String8TestConstructorStringViewLike
     {
         std::string_view str(t);
         SString8 tempstr(str);
@@ -191,7 +188,7 @@ public:
     template<class StringViewLike>
         requires std::is_convertible_v<const StringViewLike&, std::basic_string_view<CharT>>
         && !std::is_convertible_v<const StringViewLike&, const CharT*>
-    CONSTEXPR explicit SString8(const StringViewLike& t, size_type pos, size_type n) // tested by String8TestConstructorStringViewLikePosN
+    CONSTEXPR explicit SString8(const StringViewLike& t, size_type pos, size_type n) // test - String8TestConstructorStringViewLikePosN
     {
         std::string_view str(t);
         SString8 tempstr(str.data() + pos, str.data() + pos + n);
@@ -199,18 +196,14 @@ public:
     }
 #endif
 
-    inline void swap(SString8& rhs) // tested by SString8TestSwap
+    inline void swap(SString8& rhs) // test - SString8TestSwap
     {
         m_Storage.swap(rhs.m_Storage);
     }
-    inline friend void swap(SString8& lhs, SString8& rhs) // tested by SString8TestSwap
+    inline friend void swap(SString8& lhs, SString8& rhs) // test - SString8TestSwap
     {
         lhs.swap(rhs);
     }
-
-
-    // Next up:
-    // Then make these functions so far actually work efficiently
 
     SString8(const SString8& /*rhs*/) = default; // SString8TestConstructorCopy
     SString8& operator=(const SString8& /*rhs*/) = default; // SString8TestAssignment
@@ -220,13 +213,13 @@ public:
     ~SString8() noexcept = default;
 
     // data and length
-    CONSTEXPR const CharT* data() const noexcept;
-    CONSTEXPR CharT* data() noexcept;
+    CONSTEXPR const CharT* data() const noexcept; // test - SString8TestData
+    CONSTEXPR CharT* data() noexcept; // test - SString8TestData
 
-    CONSTEXPR size_type size() const noexcept;
-    CONSTEXPR size_type length() const noexcept;
+    CONSTEXPR size_type size() const noexcept; // test - SString8TestSizeLength
+    CONSTEXPR size_type length() const noexcept; // test - SString8TestSizeLength
 
-    auto operator<=>(const SString8& rhs) const noexcept // tested by SString8TestSpaceshipEqEq
+    auto operator<=>(const SString8& rhs) const noexcept // test - SString8TestSpaceshipEqEq
     {
         const auto thislen = size();
         const auto thatlen = rhs.size();
@@ -239,7 +232,7 @@ public:
         const auto cmp = thisdata <=> thatdata;
         return cmp;
     }
-    bool operator==(const SString8& rhs) const noexcept // tested by SString8TestSpaceshipEqEq
+    bool operator==(const SString8& rhs) const noexcept // test - SString8TestSpaceshipEqEq
     {
         const auto thislen = size();
         const auto thatlen = rhs.size();
@@ -253,6 +246,8 @@ public:
         const auto cmp = strncmp(thisdata, thatdata, thislen);
         return 0 == cmp;
     }
+
+    void reserve(size_t new_cap = 0);
 
 private:
 

@@ -477,22 +477,22 @@ TEST(SString8TestAssignmentMove)
 TEST(SString8TestSpaceshipEqEq)
 {
 	auto test = [](const std::string& str1, const std::string& str2)
-	{   
-		const SString8 str81(str1);
-		const SString8 str82(str2);
-
-		auto test2 = [](const std::string& s1, const std::string& s2, const SString8& s81, const SString8& s82)
 		{
-			EXPECT_EQ(s1 == s2, s81 == s82);
-			EXPECT_EQ(s1 != s2, s81 != s82);
-			EXPECT_EQ(s1 <  s2, s81 <  s82);
-			EXPECT_EQ(s1 <= s2, s81 <= s82);
-			EXPECT_EQ(s1 >  s2, s81 >  s82);
-			EXPECT_EQ(s1 >= s2, s81 >= s82);
+			const SString8 str81(str1);
+			const SString8 str82(str2);
+
+			auto test2 = [](const std::string& s1, const std::string& s2, const SString8& s81, const SString8& s82)
+				{
+					EXPECT_EQ(s1 == s2, s81 == s82);
+					EXPECT_EQ(s1 != s2, s81 != s82);
+					EXPECT_EQ(s1 < s2, s81 < s82);
+					EXPECT_EQ(s1 <= s2, s81 <= s82);
+					EXPECT_EQ(s1 > s2, s81 > s82);
+					EXPECT_EQ(s1 >= s2, s81 >= s82);
+				};
+			test2(str1, str2, str81, str82);
+			test2(str2, str1, str82, str81);
 		};
-		test2(str1, str2, str81, str82);
-		test2(str2, str1, str82, str81);
-	};
 	{
 		size_t len1 = 0;
 		size_t len2 = 0;
@@ -506,5 +506,28 @@ TEST(SString8TestSpaceshipEqEq)
 				test(str1, std::string(len2, 'b'));
 			}
 		}
+	}
+}
+
+TEST(SString8TestData)
+{
+	for (size_t len1 = 0; len1 < 34; ++len1)
+	{
+		const std::string str1(len1, 'a');
+		const SString8 str81(str1);
+		EXPECT_EQ(0, strcmp(str1.data(), str81.data()));
+		EXPECT_EQ(0, str1.compare(str81.data()));
+		EXPECT_EQ(0, str1.compare(const_cast<SString8&>(str81).data()));
+	}
+}
+
+TEST(SString8TestSizeLength)
+{
+	for (size_t len1 = 0; len1 < 34; ++len1)
+	{
+		const std::string str1(len1, 'a');
+		const SString8 str81(str1);
+		EXPECT_EQ(len1, str81.size());
+		EXPECT_EQ(len1, str81.length());
 	}
 }
