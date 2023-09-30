@@ -4,16 +4,11 @@
 #include <string>
 #include <string_view>
 
-#define CONSTEXPR // I'm not doing constexpr or allocators for the time being
+#define CONSTEXPR // no constexpr or allocators for the time being
 
 /** Abstraction of the storage.  Not intended to be used in isolation */
 struct SString8Data
 {
-    struct Large
-    {
-        uintptr_t m_pStr = 0;
-    };
-
     struct Buffer
     {
         char m_Buffer[8];
@@ -21,63 +16,56 @@ struct SString8Data
 
     struct Storage
     {
-        inline Storage() : m_Large{} {}
         union
         {
-            Large m_Large;
+            uintptr_t m_pLargeStr;
             Buffer m_Buffer;
         };
+        inline Storage() : m_pLargeStr(0) {}
+        static_assert(sizeof uintptr_t == sizeof Buffer);
     } m_Storage;
 
     static inline constexpr auto top = 1ULL << 63U;
     static inline constexpr auto notTop = ~top;
 
-    inline bool isBuffer() const
+    inline bool isBuffer() const noexcept
     {
         // highest bit is 1 if it is a pointer, 0 if it is a buffer
-        return (m_Storage.m_Large.m_pStr & top) == 0;
+        return (m_Storage.m_pLargeStr & top) == 0;
     }
 
-    inline void setBuffer()
+    inline void setBuffer() noexcept
     {
         // highest bit is 1 if it is a pointer, 0 if it is a buffer
-        m_Storage.m_Large.m_pStr &= notTop;
+        m_Storage.m_pLargeStr &= notTop;
     }
 
-    inline void setLarge()
+    inline void setLarge() noexcept
     {
         // highest bit is 1 if it is a pointer, 0 if it is a buffer
-        m_Storage.m_Large.m_pStr |= top;
+        m_Storage.m_pLargeStr |= top;
     }
 
-    inline char* getAsPtr()
+    inline char* getAsPtr() noexcept
     {
-        return reinterpret_cast<char*>(m_Storage.m_Large.m_pStr & notTop);
+        return reinterpret_cast<char*>(m_Storage.m_pLargeStr & notTop);
     }
-    inline const char* getAsPtr() const
+    inline const char* getAsPtr() const noexcept
     {
-        return const_cast<SString8Data*>(this)->getAsPtr();
-    }
-
-    inline void swap(SString8Data& rhs)
-    {
-        std::swap(m_Storage.m_Large.m_pStr, rhs.m_Storage.m_Large.m_pStr);
+        return reinterpret_cast<const char*>(m_Storage.m_pLargeStr & notTop);
     }
 
-    size_t size() const
+    inline void swap(SString8Data& rhs) noexcept
+    {
+        std::swap(m_Storage.m_pLargeStr, rhs.m_Storage.m_pLargeStr);
+    }
+
+    size_t size() const noexcept
     {
         if (isBuffer())
             return strlen(m_Storage.m_Buffer.m_Buffer); // std::find ?
 
         return strlen(getAsPtr());
-    }
-
-    inline const char* data() const noexcept
-    {
-        if (isBuffer())
-            return m_Storage.m_Buffer.m_Buffer;
-
-        return getAsPtr();
     }
 
     inline char* data() noexcept
@@ -87,28 +75,23 @@ struct SString8Data
 
         return getAsPtr();
     }
+    inline const char* data() const noexcept
+    {
+        if (isBuffer())
+            return m_Storage.m_Buffer.m_Buffer;
+
+        return getAsPtr();
+    }
 
     SString8Data() = default;
 
+public:
     SString8Data(const SString8Data& rhs) // test - SString8DataTestConstructorCopy
+        : SString8Data(CharStarLenPr{ rhs.data(), rhs.size() })
     {
-        const auto len = rhs.size();
-        if (len <= 7)
-        {
-            m_Storage = rhs.m_Storage;
-        }
-        else
-        {
-            auto ptr = new char[len + 1];
-            strncpy_s(ptr, len + 1, rhs.getAsPtr(), len);
-            ptr[len] = '\0';
-            m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(ptr);
-            setLarge();
-            // size and capacity ?
-        }
     }
 
-    SString8Data& operator=(SString8Data rhs) // test SString8DataTestAssignement
+    SString8Data& operator=(SString8Data rhs) noexcept // test SString8DataTestAssignement
     {
         swap(rhs);
         return *this;
@@ -119,27 +102,37 @@ struct SString8Data
         swap(rhs);
     }
 
-    ~SString8Data()
+    ~SString8Data() noexcept
     {
         if (!isBuffer())
             delete[] getAsPtr();
     }
 
     SString8Data(std::string_view rhs) // test - SString8DataTestConstructorStringView
+        : SString8Data(CharStarLenPr{ rhs.data(), rhs.size() })
     {
-        const auto len = rhs.size();
+    }
+
+private:
+    struct CharStarLenPr
+    {
+        const char* pStr;
+        size_t len;
+    };
+    SString8Data(CharStarLenPr data)
+    {
+        const auto [pRhs, len] = data;
         if (len <= 7)
         {
-            strncpy(m_Storage.m_Buffer.m_Buffer, rhs.data(), len);
+            strncpy(m_Storage.m_Buffer.m_Buffer, pRhs, len);
             m_Storage.m_Buffer.m_Buffer[len] = '\0';
-            // size and capacity ?
         }
         else
         {
             auto ptr = new char[len + 1];
-            strncpy(ptr, rhs.data(), len);
+            strncpy_s(ptr, len + 1, pRhs, len);
             ptr[len] = '\0';
-            m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(ptr);
+            m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
             setLarge();
             // size and capacity ?
         }
@@ -217,8 +210,6 @@ public:
 
 
     // Next up:
-    // Spaceship
-    // ==, !=
     // Then make these functions so far actually work efficiently
 
     SString8(const SString8& /*rhs*/) = default; // SString8TestConstructorCopy
@@ -234,6 +225,34 @@ public:
 
     CONSTEXPR size_type size() const noexcept;
     CONSTEXPR size_type length() const noexcept;
+
+    auto operator<=>(const SString8& rhs) const noexcept // tested by SString8TestSpaceshipEqEq
+    {
+        const auto thislen = size();
+        const auto thatlen = rhs.size();
+
+        if (auto cmp = thislen<=>thatlen; cmp != 0)
+            return cmp;
+
+        const auto thisdata = std::string_view(data(), thislen);
+        const auto thatdata = std::string_view(rhs.data(), thislen);
+        const auto cmp = thisdata <=> thatdata;
+        return cmp;
+    }
+    bool operator==(const SString8& rhs) const noexcept // tested by SString8TestSpaceshipEqEq
+    {
+        const auto thislen = size();
+        const auto thatlen = rhs.size();
+
+        if (thislen != thatlen)
+            return false;
+
+        const auto thisdata = data();
+        const auto thatdata = rhs.data();
+
+        const auto cmp = strncmp(thisdata, thatdata, thislen);
+        return 0 == cmp;
+    }
 
 private:
 

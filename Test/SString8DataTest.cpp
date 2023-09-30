@@ -31,7 +31,7 @@ TEST(Data)
 		else
 		{
 			auto p = data2.data();
-			EXPECT_NE(reinterpret_cast<uintptr_t>(p), data.m_Storage.m_Large.m_pStr);
+			EXPECT_NE(reinterpret_cast<uintptr_t>(p), data.m_Storage.m_pLargeStr);
 			EXPECT_EQ(p, data.getAsPtr());
 			EXPECT_EQ(p, data2.getAsPtr());
 		}
@@ -202,12 +202,12 @@ TEST(SString8DataTestGetSetPtr)
 		const auto longStr = new char[9] {'1', '2', '3', '4', '5', '6', '7', '8', '\0'};
 
 		SString8Data data;
-		data.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(longStr);
-		EXPECT_EQ(reinterpret_cast<char*>(data.m_Storage.m_Large.m_pStr), longStr);
+		data.m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(longStr);
+		EXPECT_EQ(reinterpret_cast<char*>(data.m_Storage.m_pLargeStr), longStr);
 
 		data.setLarge();
 		EXPECT_FALSE(data.isBuffer());
-		EXPECT_NE(reinterpret_cast<char*>(data.m_Storage.m_Large.m_pStr), longStr);
+		EXPECT_NE(reinterpret_cast<char*>(data.m_Storage.m_pLargeStr), longStr);
 		EXPECT_EQ(data.getAsPtr(), longStr);
 		const auto pStr = data.getAsPtr();
 		EXPECT_EQ(0, strcmp(pStr, longStr));

@@ -1,12 +1,11 @@
 #include "SString8.h"
 
-// implementation - move to cpp?
 #include <cstring>
 #include <string>
 
 //CONSTEXPR SString8::SString8() noexcept
 //{
-//    m_Storage.m_Large.m_pStr = 0;
+//    m_Storage.m_pLargeStr = 0;
 //}
 
 std::string_view SString8::asStringView() const
@@ -19,7 +18,7 @@ CONSTEXPR SString8::SString8(std::string_view str)
     const auto len = str.length();
     if (len <= 7)
     {
-        m_Storage.m_Storage.m_Large.m_pStr = 0;
+        m_Storage.m_Storage.m_pLargeStr = 0;
         memcpy(m_Storage.m_Storage.m_Buffer.m_Buffer, str.data(), len);
         // size and capacity ?
     }
@@ -28,7 +27,7 @@ CONSTEXPR SString8::SString8(std::string_view str)
         auto ptr = new char[len + 1];
         strncpy_s(ptr, len + 1, str.data(), len);
         ptr[len] = '\0';
-        m_Storage.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(ptr);
+        m_Storage.m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
         setLarge();
         // size and capacity ?
     }
@@ -43,7 +42,7 @@ CONSTEXPR SString8::SString8(size_type count, CharT ch)
 {
     if (count <= 7)
     {
-        m_Storage.m_Storage.m_Large.m_pStr = 0;
+        m_Storage.m_Storage.m_pLargeStr = 0;
         for (size_type i = 0; i < count; ++i)
             m_Storage.m_Storage.m_Buffer.m_Buffer[i] = ch;
         // size and capacity ?
@@ -54,7 +53,7 @@ CONSTEXPR SString8::SString8(size_type count, CharT ch)
         for (size_type i = 0; i < count; ++i)
             ptr[i] = ch;
         ptr[count] = '\0';
-        m_Storage.m_Storage.m_Large.m_pStr = reinterpret_cast<uintptr_t>(ptr);
+        m_Storage.m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
         setLarge();
         // size and capacity ?
     }
