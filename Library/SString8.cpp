@@ -83,7 +83,7 @@ CONSTEXPR SString8::size_type SString8::length() const noexcept
     return size();
 }
 
-void SString8::reserve(size_t new_cap)
+void SString8::reserve(size_t /*new_cap*/)
 {
     // @TODO
 }
