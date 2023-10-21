@@ -10,10 +10,46 @@ TEST(Data)
 		EXPECT_TRUE(data.isBuffer());
 		data.setBuffer();
 		EXPECT_TRUE(data.isBuffer());
+		EXPECT_FALSE(data.isPtr());
+		EXPECT_FALSE(data.isLarge());
+		EXPECT_FALSE(data.isMedium());
+		EXPECT_FALSE(data.isSmall());
 		data.setLarge();
 		EXPECT_FALSE(data.isBuffer());
+		EXPECT_TRUE(data.isPtr());
+		EXPECT_TRUE(data.isLarge());
+		EXPECT_FALSE(data.isMedium());
+		EXPECT_FALSE(data.isSmall());
+		data.setMedium();
+		EXPECT_FALSE(data.isBuffer());
+		EXPECT_TRUE(data.isPtr());
+		EXPECT_FALSE(data.isLarge());
+		EXPECT_TRUE(data.isMedium());
+		EXPECT_FALSE(data.isSmall());
+		data.setSmall();
+		EXPECT_FALSE(data.isBuffer());
+		EXPECT_TRUE(data.isPtr());
+		EXPECT_FALSE(data.isLarge());
+		EXPECT_FALSE(data.isMedium());
+		EXPECT_TRUE(data.isSmall());
 		data.setBuffer();
 		EXPECT_TRUE(data.isBuffer());
+		EXPECT_FALSE(data.isPtr());
+		EXPECT_FALSE(data.isLarge());
+		EXPECT_FALSE(data.isMedium());
+		EXPECT_FALSE(data.isSmall());
+		data.setLarge();
+		EXPECT_FALSE(data.isBuffer());
+		EXPECT_TRUE(data.isPtr());
+		EXPECT_TRUE(data.isLarge());
+		EXPECT_FALSE(data.isMedium());
+		EXPECT_FALSE(data.isSmall());
+		data.setBuffer();
+		EXPECT_TRUE(data.isBuffer());
+		EXPECT_FALSE(data.isPtr());
+		EXPECT_FALSE(data.isLarge());
+		EXPECT_FALSE(data.isMedium());
+		EXPECT_FALSE(data.isSmall());
 	}
 	for (const std::string_view str : { "", "1", "1234567", "1234568" })
 	{

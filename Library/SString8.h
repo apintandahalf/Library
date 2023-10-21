@@ -83,24 +83,62 @@ struct SString8Data
 
     static inline constexpr auto top = 1ULL << 63U;
     static inline constexpr auto notTop = ~top;
+    static inline constexpr auto small_lower_bits  = 0b00ULL;
+    static inline constexpr auto medium_lower_bits = 0b01ULL;
+    static inline constexpr auto large_lower_bits  = 0b10ULL;
+    static inline constexpr auto small_bits  = top | small_lower_bits;
+    static inline constexpr auto medium_bits = top | medium_lower_bits;
+    static inline constexpr auto large_bits  = top | large_lower_bits;
+    static inline constexpr auto fifeteen_bites_set = 0x7FFFULL;
+    static inline constexpr auto lowest_two_bits_zero = ~0b11ULL;
 
     // highest bit is 1 if it is a pointer, 0 if it is a buffer
-    inline bool isPtr()    const noexcept { return (m_Storage.m_pLargeStr & top) == 1; }
+    inline bool isPtr()    const noexcept
+    {
+        return (m_Storage.m_pLargeStr & top) != 0;
+    }
     inline bool isBuffer() const noexcept { return !isPtr(); }
-    inline bool isSmall()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == 0b00; }
-    inline bool isMedium() const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == 0b01; }
-    inline bool isLarge()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == 0b10; }
+    inline bool isSmall()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == small_lower_bits; }
+    inline bool isMedium() const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == medium_lower_bits; }
+    inline bool isLarge()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == large_lower_bits; }
 
     // highest bit is 1 if it is a pointer, 0 if it is a buffer
-    inline void setBuffer() noexcept { m_Storage.m_pLargeStr &= notTop; }
-    inline void setPtr()    noexcept { m_Storage.m_pLargeStr |= top; m_Storage.m_pLargeStr &= 0b00; } // set bottom 2 bits to 0 as well
-    inline void setSmall()  noexcept { setPtr(); /* setPtr already sets bottom 2 bits to 0 - no need to do it again */ }
-    inline void setMedium() noexcept { setPtr(); m_Storage.m_pLargeStr |= 0b01; }
-    inline void setLarge()  noexcept { setPtr(); m_Storage.m_pLargeStr |= 0b10; }
+    inline void setBuffer() noexcept
+    {
+        m_Storage.m_Buffer.m_Buffer[7] &= 0b01111111;
+    }
+    inline void clearPtrSizeBits() noexcept
+    {
+        m_Storage.m_Buffer.m_Buffer[0] &= 0b11111100;
+    }
+    inline void setSmall()  noexcept
+    {
+        clearPtrSizeBits();
+        m_Storage.m_pLargeStr |= small_bits;
+    }
+    inline void setMedium() noexcept { clearPtrSizeBits(); m_Storage.m_pLargeStr |= medium_bits; }
+    inline void setLarge()  noexcept
+    {
+        clearPtrSizeBits();
+        m_Storage.m_pLargeStr |= large_bits;
+    }
 
     // strip out the top bit and the lowest 2 bits
-    inline       char* getAsPtr()       noexcept { return reinterpret_cast<char*>      (m_Storage.m_pLargeStr & notTop & 0b00); }
-    inline const char* getAsPtr() const noexcept { return reinterpret_cast<const char*>(m_Storage.m_pLargeStr & notTop & 0b00); }
+    inline       char* getAsPtr()       noexcept
+    {
+        auto p = m_Storage.m_pLargeStr;
+        p &= notTop;
+        p &= lowest_two_bits_zero;
+        return reinterpret_cast<char*>(p);
+    }
+    inline const char* getAsPtr() const noexcept
+    {
+        auto p = m_Storage.m_pLargeStr;
+        p &= notTop;
+        p &= lowest_two_bits_zero;
+        return reinterpret_cast<char*>(p);
+        //return reinterpret_cast<const char*>(m_Storage.m_pLargeStr & notTop & 0b00);
+    }
 
     inline void swap(SString8Data& rhs) noexcept
     {
@@ -177,7 +215,12 @@ public:
             strncpy_s(ptr, len + 1, pRhs, len);
             ptr[len] = '\0';
             m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
-            setLarge();
+            if (len <= 255)
+                setSmall();
+            else if (len <= fifeteen_bites_set)
+                setMedium();
+            else
+                setLarge();
             // size and capacity ?
         }
     }
