@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <bit>
+#include <stdexcept>
 
 #define CONSTEXPR // no constexpr or allocators for the time being
 
@@ -76,7 +77,9 @@ struct SString8Data
             uintptr_t m_pLargeStr;
             Buffer m_Buffer;
         };
-        inline Storage() : m_pLargeStr(0) {}
+        inline Storage()
+            : m_Buffer{ 0,0,0,0,0,0,0,'\7'}
+        {}
         static_assert(sizeof uintptr_t == sizeof Buffer); // make sure that we aren't accidently introducing some padding
     } m_Storage;
     static_assert(sizeof uintptr_t == sizeof m_Storage); // make sure that we aren't accidently introducing some padding
@@ -90,7 +93,17 @@ struct SString8Data
     static inline constexpr auto medium_bits = top | medium_lower_bits;
     static inline constexpr auto large_bits  = top | large_lower_bits;
     static inline constexpr auto fifeteen_bites_set = 0x7FFFULL;
+    static inline constexpr auto max_size_small = 255ULL;
+    
     static inline constexpr auto lowest_two_bits_zero = ~0b11ULL;
+    static inline constexpr auto not_top_two_bytes_or_bottom_two_bits =    0x00ULL
+                                                                        | (0xFFULL << 40)
+                                                                        | (0xFFULL << 32)
+                                                                        | (0xFFULL << 24)
+                                                                        | (0xFFULL << 16)
+                                                                        | (0xFFULL <<  8)
+                                                                        | 0b11111100;
+        //notTop & lowest_two_bits_zero;
 
     // highest bit is 1 if it is a pointer, 0 if it is a buffer
     inline bool isPtr()    const noexcept
@@ -103,41 +116,35 @@ struct SString8Data
     inline bool isLarge()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == large_lower_bits; }
 
     // highest bit is 1 if it is a pointer, 0 if it is a buffer
-    inline void setBuffer() noexcept
-    {
-        m_Storage.m_Buffer.m_Buffer[7] &= 0b01111111;
-    }
-    inline void clearPtrSizeBits() noexcept
-    {
-        m_Storage.m_Buffer.m_Buffer[0] &= 0b11111100;
-    }
-    inline void setSmall()  noexcept
-    {
+    inline void setBuffer() noexcept { m_Storage.m_Buffer.m_Buffer[7] &= 0b01111111; }
+    inline void clearPtrSizeBits() noexcept { m_Storage.m_Buffer.m_Buffer[0] &= 0b11111100; }
+    inline void setSmall(size_t len)  noexcept
+    { // 6 length, 7 capacity
         clearPtrSizeBits();
         m_Storage.m_pLargeStr |= small_bits;
+        m_Storage.m_Buffer.m_Buffer[6] = static_cast<char>(len);
     }
-    inline void setMedium() noexcept { clearPtrSizeBits(); m_Storage.m_pLargeStr |= medium_bits; }
-    inline void setLarge()  noexcept
+    inline void setMedium(size_t len) noexcept
     {
+        // 6 and 7 length
         clearPtrSizeBits();
-        m_Storage.m_pLargeStr |= large_bits;
+        m_Storage.m_pLargeStr |= medium_bits;
+        auto pLen = reinterpret_cast<uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
+        *pLen = static_cast<uint16_t>(len);
+    }
+    inline void setLarge(size_t /*len*/)  noexcept
+    {
+        clearPtrSizeBits(); m_Storage.m_pLargeStr |= large_bits;
     }
 
     // strip out the top bit and the lowest 2 bits
     inline       char* getAsPtr()       noexcept
     {
-        auto p = m_Storage.m_pLargeStr;
-        p &= notTop;
-        p &= lowest_two_bits_zero;
-        return reinterpret_cast<char*>(p);
+        return reinterpret_cast<char*>(m_Storage.m_pLargeStr & not_top_two_bytes_or_bottom_two_bits);
     }
     inline const char* getAsPtr() const noexcept
     {
-        auto p = m_Storage.m_pLargeStr;
-        p &= notTop;
-        p &= lowest_two_bits_zero;
-        return reinterpret_cast<char*>(p);
-        //return reinterpret_cast<const char*>(m_Storage.m_pLargeStr & notTop & 0b00);
+        return reinterpret_cast<const char*>(m_Storage.m_pLargeStr & not_top_two_bytes_or_bottom_two_bits);
     }
 
     inline void swap(SString8Data& rhs) noexcept
@@ -148,8 +155,12 @@ struct SString8Data
     size_t size() const noexcept
     {
         if (isBuffer())
-            return strlen(m_Storage.m_Buffer.m_Buffer); // std::find ?
+            return 7 - m_Storage.m_Buffer.m_Buffer[7]; // std::find ?
 
+        if (isSmall())
+            return m_Storage.m_Buffer.m_Buffer[6];
+        if (isMedium())
+            return strlen(getAsPtr());
         return strlen(getAsPtr());
     }
 
@@ -208,6 +219,7 @@ public:
         {
             strncpy(m_Storage.m_Buffer.m_Buffer, pRhs, len);
             m_Storage.m_Buffer.m_Buffer[len] = '\0';
+            m_Storage.m_Buffer.m_Buffer[7] = static_cast<char>(7 - len);
         }
         else
         {
@@ -215,12 +227,12 @@ public:
             strncpy_s(ptr, len + 1, pRhs, len);
             ptr[len] = '\0';
             m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
-            if (len <= 255)
-                setSmall();
+            if (len <= max_size_small)
+                setSmall(len);
             else if (len <= fifeteen_bites_set)
-                setMedium();
+                setMedium(len);
             else
-                setLarge();
+                setLarge(len);
             // size and capacity ?
         }
     }
@@ -281,7 +293,8 @@ public:
     CONSTEXPR explicit SString8(const StringViewLike& t, size_type pos, size_type n) // test - String8TestConstructorStringViewLikePosN
     {
         std::string_view str(t);
-        SString8 tempstr(str.data() + pos, str.data() + pos + n);
+        const auto count = SString8::check_count(str, pos, n);
+        SString8 tempstr(str.data() + pos, str.data() + pos + count);
         swap(tempstr);
     }
 #endif
@@ -353,10 +366,10 @@ private:
         m_Storage.setBuffer();
     }
 
-    inline void setLarge()
-    {
-        m_Storage.setLarge();
-    }
+    //inline void setLarge()
+    //{
+    //    m_Storage.setLarge();
+    //}
 
     inline char* getAsPtr()
     {
@@ -374,4 +387,23 @@ private:
         static CharT empty = '\0';
         return &empty;
     }*/
+
+    template<typename StringType>
+    inline static size_t check_out_of_range(const StringType& other, SString8::size_type pos)
+    {
+        if (pos > other.length())
+            throw std::out_of_range("pos > other.length()");
+        return 0;
+    }
+    template<typename StringType>
+    inline static size_t check_count(const StringType& other, SString8::size_type pos, SString8::size_type count)
+    {
+        check_out_of_range(other, pos);
+
+        if (count == std::string::npos)
+            return other.size() - pos;
+        if (count + pos > other.length())
+            return other.size() - pos;
+        return count;
+    }
 };

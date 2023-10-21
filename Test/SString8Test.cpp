@@ -31,9 +31,15 @@ namespace
 
 TEST(String8TestDefaultConstructor)
 {
-	SString8 str1;
-	std::string str2;
-	testAreEqual(str1, str2);
+	SString8 lhs;
+	std::string rhs;
+	//testAreEqual(str1, str2);
+	EXPECT_EQ(lhs.size(), rhs.size());
+	const auto pL = lhs.data();
+	EXPECT_NE(pL, nullptr);
+	const auto pR = rhs.data();
+	EXPECT_NE(pR, nullptr);
+	EXPECT_EQ(0, strcmp(pL, pR));
 }
 
 TEST(String8TestConstructorCountChar)
@@ -133,9 +139,42 @@ TEST(String8TestAsStringView)
 	}
 }
 
+namespace
+{
+	template<class StringType1, class StringType2>
+	void testString8TestConstructorOtherPosThrows()
+	{
+		const StringType2 str("abcdefghijklmnop");
+		int count = 0; // expecting 2
+		try
+		{
+			{
+				// this should work
+				const auto str2 = StringType1(str, str.length());
+				count += 2;
+			}
+			{
+				// this should fail
+				const auto str2 = StringType1(str, str.length()+1);
+				--count;
+				EXPECT_TRUE(false);
+			}
+		}
+		catch (std::out_of_range&)
+		{
+			EXPECT_EQ(count, 2);
+		}
+	}
+}
+
 TEST(String8TestConstructorOtherPos)
 {
+	testString8TestConstructorOtherPosThrows<std::string, std::string>();
+	testString8TestConstructorOtherPosThrows<SString8, std::string>();
+	testString8TestConstructorOtherPosThrows<SString8, SString8>();
+
 	const std::string stdstr(std::string_view("abcdefghijklmnop"));
+
 	const SString8 sstr(stdstr);
 	assertAreEqual(sstr, stdstr);
 
@@ -149,8 +188,40 @@ TEST(String8TestConstructorOtherPos)
 	}
 }
 
+namespace
+{
+	template<class StringType1, class StringType2>
+	void testString8TestConstructorOtherPosCountThrows()
+	{
+		const StringType2 str("abcdefghijklmnop");
+		int count = 0; // expecting 2
+		try
+		{
+			{
+				// this should work
+				const auto str2 = StringType1(str, str.length(), 1);
+				count += 2;
+			}
+			{
+				// this should fail
+				const auto str2 = StringType1(str, str.length() + 1, 1);
+				--count;
+				EXPECT_TRUE(false);
+			}
+		}
+		catch (std::out_of_range&)
+		{
+			EXPECT_EQ(count, 2);
+		}
+	}
+}
+
 TEST(String8TestConstructorOtherPosCount)
 {
+	testString8TestConstructorOtherPosCountThrows<std::string, std::string>();
+	testString8TestConstructorOtherPosCountThrows<SString8, std::string>();
+	testString8TestConstructorOtherPosCountThrows<SString8, SString8>();
+
 	const std::string stdstr(std::string_view("abcdefghijklmnop"));
 	const SString8 sstr(stdstr);
 	assertAreEqual(sstr, stdstr);
@@ -234,6 +305,7 @@ namespace
 
 TEST(String8TestConstructorStringViewLike)
 {
+	// can throw
 	const StringViewLike str("abcdefghijklmnop");
 	const std::string str1(str);
 	const SString8 str2(str);
@@ -243,8 +315,39 @@ TEST(String8TestConstructorStringViewLike)
 	EXPECT_EQ(0, strcmp(pStr1, pStr2));
 }
 
+namespace
+{
+	template<class StringType1, class StringType2>
+	void testString8TestConstructorStringViewLikePosNThrows()
+	{
+		const StringType2 str("abcdefghijklmnop");
+		int count = 0; // expecting 2
+		try
+		{
+			{
+				// this should work
+				const auto str2 = StringType1(str, str.length(), 1);
+				count += 2;
+			}
+			{
+				// this should fail
+				const auto str2 = StringType1(str, str.length() + 1, 1);
+				--count;
+				EXPECT_TRUE(false);
+			}
+		}
+		catch (std::out_of_range&)
+		{
+			EXPECT_EQ(count, 2);
+		}
+	}
+}
+
 TEST(String8TestConstructorStringViewLikePosN)
 {
+	testString8TestConstructorStringViewLikePosNThrows<std::string, StringViewLike>();
+	testString8TestConstructorStringViewLikePosNThrows<SString8, StringViewLike>();
+
 	const StringViewLike svl("abcdefghijklmnop");
 
 	for (size_t pos = 0; pos < svl.length(); ++pos)
@@ -530,4 +633,30 @@ TEST(SString8TestSizeLength)
 		EXPECT_EQ(len1, str81.size());
 		EXPECT_EQ(len1, str81.length());
 	}
+}
+
+namespace
+{
+	template<class StringType>
+	void testSString8TestEmbeddedNulls()
+	{
+		EXPECT_EQ(StringType("\0").length(), 0);
+		EXPECT_EQ(StringType("\0a").length(), 0);
+		EXPECT_EQ(StringType("a\0").length(), 1);
+		EXPECT_EQ(StringType("\0", 1).length(), 1);
+		EXPECT_EQ(StringType("\0a", 2).length(), 2);
+		EXPECT_EQ(StringType("a\0", 2).length(), 2);
+		EXPECT_EQ(StringType("abcdefgab\0cd").length(), 9);
+		EXPECT_EQ(StringType("abcdefgab\0cd", 12).length(), 12);
+		{
+			using namespace std::string_literals;
+			EXPECT_EQ(StringType("ab\0\0cde"s).length(), 7);
+		}
+	}
+}
+
+TEST(SString8TestEmbeddedNulls)
+{
+	testSString8TestEmbeddedNulls<std::string>();
+	testSString8TestEmbeddedNulls<SString8>();
 }

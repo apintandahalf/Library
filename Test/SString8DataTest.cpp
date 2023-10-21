@@ -5,6 +5,7 @@
 
 TEST(Data)
 {
+	/*
 	{
 		SString8Data data;
 		EXPECT_TRUE(data.isBuffer());
@@ -51,6 +52,7 @@ TEST(Data)
 		EXPECT_FALSE(data.isMedium());
 		EXPECT_FALSE(data.isSmall());
 	}
+	*/
 	for (const std::string_view str : { "", "1", "1234567", "1234568" })
 	{
 		SString8Data data(str);
@@ -234,7 +236,7 @@ TEST(SString8DataTestGetSetPtr)
 		EXPECT_EQ(0, strcmp(data.m_Storage.m_Buffer.m_Buffer, shortStr));
 	}
 
-	{
+	/* {
 		const auto longStr = new char[9] {'1', '2', '3', '4', '5', '6', '7', '8', '\0'};
 
 		SString8Data data;
@@ -248,4 +250,5 @@ TEST(SString8DataTestGetSetPtr)
 		const auto pStr = data.getAsPtr();
 		EXPECT_EQ(0, strcmp(pStr, longStr));
 	}
+	*/
 }

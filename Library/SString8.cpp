@@ -29,22 +29,29 @@ CONSTEXPR SString8::SString8(size_type count, CharT ch)
 }
 
 CONSTEXPR SString8::SString8(const SString8& other, size_type pos, size_type count)
-    : m_Storage(other.data()+pos, count)
+    : m_Storage(other.data() + pos + SString8::check_out_of_range(other, pos), SString8::check_count(other, pos, count))
 {
+    /*
+    basic_string( const basic_string& other,
+                  size_type pos, size_type count,
+                  const Allocator& alloc = Allocator() );
+    Constructs the string with a substring [pos, pos + count) of other.
+    If count == npos, if count is not specified, or if the requested substring lasts past the end of the string, the resulting substring is [pos, other.size()).
+    */
 }
 
 CONSTEXPR SString8::SString8(const std::string& other, size_type pos, size_type count)
-    : m_Storage(other.data() + pos, count)
+    : m_Storage(other.data() + pos + SString8::check_out_of_range(other, pos), SString8::check_count(other, pos, count))
 {
 }
 
 CONSTEXPR SString8::SString8(const SString8& other, size_type pos)
-    : m_Storage(other.data() + pos, other.length()-pos)
+    : m_Storage(other.data() + pos + SString8::check_out_of_range(other, pos), other.length()-pos)
 {
 }
 
 CONSTEXPR SString8::SString8(const std::string& other, size_type pos)
-    : m_Storage(other.data() + pos, other.length() - pos)
+    : m_Storage(other.data() + pos + SString8::check_out_of_range(other, pos), other.length() - pos)
 {
 }
 
