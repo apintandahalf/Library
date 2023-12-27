@@ -1,15 +1,11 @@
 #pragma once
 
-#include <cstddef>
-#include <string>
-#include <string_view>
 #include <bit>
-#include <stdexcept>
-
-#define CONSTEXPR // no constexpr or allocators for the time being
+#include <string_view>
 
 /**
-Abstraction of the storage.  Not intended to be used in isolation
+Abstraction of the SString8 storage.  Not intended to be used in isolation.
+Everything is public becuase it is assumed that all access (other than for testing) is doen through SString8.
 
 How the string, size and capacity are stored
 
@@ -106,7 +102,7 @@ struct SString8Data
         //notTop & lowest_two_bits_zero;
 
     // highest bit is 1 if it is a pointer, 0 if it is a buffer
-    inline bool isPtr()    const noexcept
+    inline bool isPtr() const noexcept
     {
         return (m_Storage.m_pLargeStr & top) != 0;
     }
@@ -121,20 +117,21 @@ struct SString8Data
     inline void setSmall(size_t len)  noexcept
     { // 6 length, 7 capacity
         clearPtrSizeBits();
+        *reinterpret_cast<uint8_t*>(&m_Storage.m_Buffer.m_Buffer[6]) = static_cast<uint8_t>(len);
         m_Storage.m_pLargeStr |= small_bits;
-        m_Storage.m_Buffer.m_Buffer[6] = static_cast<char>(len);
     }
     inline void setMedium(size_t len) noexcept
     {
         // 6 and 7 length
         clearPtrSizeBits();
+        *reinterpret_cast<uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]) = static_cast<uint16_t>(len);
         m_Storage.m_pLargeStr |= medium_bits;
-        auto pLen = reinterpret_cast<uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
-        *pLen = static_cast<uint16_t>(len);
     }
     inline void setLarge(size_t /*len*/)  noexcept
     {
-        clearPtrSizeBits(); m_Storage.m_pLargeStr |= large_bits;
+        //@TODO - store the size somewhere
+        clearPtrSizeBits();
+        m_Storage.m_pLargeStr |= large_bits;
     }
 
     // strip out the top bit and the lowest 2 bits
@@ -158,9 +155,13 @@ struct SString8Data
             return 7 - m_Storage.m_Buffer.m_Buffer[7]; // std::find ?
 
         if (isSmall())
-            return m_Storage.m_Buffer.m_Buffer[6];
+            return *reinterpret_cast<const uint8_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
+
         if (isMedium())
-            return strlen(getAsPtr());
+            return *reinterpret_cast<const uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6])
+                & ~(1U << 15U); // remove the top bit
+
+        // @todo
         return strlen(getAsPtr());
     }
 
@@ -181,7 +182,6 @@ struct SString8Data
 
     SString8Data() = default;
 
-public:
     SString8Data(const SString8Data& rhs) // test - SString8DataTestConstructorCopy
         : SString8Data(rhs.data(), rhs.size())
     {
@@ -210,8 +210,9 @@ public:
     }
 
     /**
-    Assumes that len is the number of chars pointed to by pRhs, not including any null terminator.  
-    Null terminator not required
+    Assumes that len is the number of chars pointed to by pRhs, not including any null terminator.
+    If this is not true then bad things will happen.
+    Null terminator not required.
     */
     SString8Data(const char* pRhs, size_t len)
     {
@@ -233,11 +234,22 @@ public:
                 setMedium(len);
             else
                 setLarge(len);
-            // size and capacity ?
+            // @todo - capacity
         }
     }
 };
 
+#include <cstddef>
+#include <string>
+#include <stdexcept>
+#include <ostream>
+
+/**
+An alternative to std::string which is only 8 bytes in size as opposed to the usual 24-32 bytes.
+Only valid on a 64 bit  system.
+Otimised for very short strings - has a 7 byte buffer (as opposed to the more usual 15 or 23)
+It does support the full range of string sizes, but once the string is bigger than 255 bytes it will be less performant than a std::string (though still smaller)
+*/
 class SString8
 {
 public:
@@ -248,23 +260,23 @@ public:
 
     SString8(std::nullptr_t) = delete;
 
-    CONSTEXPR SString8() noexcept = default; // test - String8TestDefaultConstructor
+    SString8() noexcept = default; // test - String8TestDefaultConstructor
 
     SString8(std::string_view str); // test - String8TestConstructorStringView
     SString8(const std::string& str); // test - String8TestConstructorString
-    std::string_view asStringView() const; // test - String8TestAsStringView
+    operator std::string_view() const; // test - String8Testoperatotstdstringview
 
-    CONSTEXPR SString8(size_type count, CharT ch); // test - String8TestConstructorCountChar
+    SString8(size_type count, CharT ch); // test - String8TestConstructorCountChar
 
-    CONSTEXPR SString8(const SString8& other, size_type pos); // test - String8TestConstructorOtherPos
-    CONSTEXPR SString8(const std::string& other, size_type pos); // test - String8TestConstructorOtherPos
+    SString8(const SString8& other, size_type pos); // test - String8TestConstructorOtherPos
+    SString8(const std::string& other, size_type pos); // test - String8TestConstructorOtherPos
 
-    CONSTEXPR SString8(const SString8& other, size_type pos, size_type count); // test - String8TestConstructorOtherPosCount
-    CONSTEXPR SString8(const std::string& other, size_type pos, size_type count); // test - String8TestConstructorOtherPosCount
+    SString8(const SString8& other, size_type pos, size_type count); // test - String8TestConstructorOtherPosCount
+    SString8(const std::string& other, size_type pos, size_type count); // test - String8TestConstructorOtherPosCount
 
-    CONSTEXPR SString8(const CharT* s, size_type count); // test - String8TestConstructorCharStarCount
+    SString8(const CharT* s, size_type count); // test - String8TestConstructorCharStarCount
 
-    CONSTEXPR SString8(const CharT* s); // test - String8TestConstructorCharStar
+    SString8(const CharT* s); // test - String8TestConstructorCharStar
 
     template<class InputIt>
     SString8(InputIt first, InputIt last) // test - String8TestConstructorInputItFirstLast
@@ -274,13 +286,13 @@ public:
         swap(tempstr);
     }
 
-    CONSTEXPR SString8(std::initializer_list<CharT> ilist); // test - String8TestConstructorInitialiserList
+    SString8(std::initializer_list<CharT> ilist); // test - String8TestConstructorInitialiserList
 
 #if __cplusplus >= 202002L
     template<class StringViewLike>
         requires std::is_convertible_v<const StringViewLike&, std::basic_string_view<CharT>>
         && !std::is_convertible_v<const StringViewLike&, const CharT*>
-    CONSTEXPR explicit SString8(const StringViewLike& t) //  test - String8TestConstructorStringViewLike
+    explicit SString8(const StringViewLike& t) //  test - String8TestConstructorStringViewLike
     {
         std::string_view str(t);
         SString8 tempstr(str);
@@ -290,7 +302,7 @@ public:
     template<class StringViewLike>
         requires std::is_convertible_v<const StringViewLike&, std::basic_string_view<CharT>>
         && !std::is_convertible_v<const StringViewLike&, const CharT*>
-    CONSTEXPR explicit SString8(const StringViewLike& t, size_type pos, size_type n) // test - String8TestConstructorStringViewLikePosN
+    explicit SString8(const StringViewLike& t, size_type pos, size_type n) // test - String8TestConstructorStringViewLikePosN
     {
         std::string_view str(t);
         const auto count = SString8::check_count(str, pos, n);
@@ -316,77 +328,39 @@ public:
     ~SString8() noexcept = default;
 
     // data and length
-    CONSTEXPR const CharT* data() const noexcept; // test - SString8TestData
-    CONSTEXPR CharT* data() noexcept; // test - SString8TestData
+    const CharT* data() const noexcept; // test - SString8TestData
+    CharT* data() noexcept; // test - SString8TestData
 
-    CONSTEXPR size_type size() const noexcept; // test - SString8TestSizeLength
-    CONSTEXPR size_type length() const noexcept; // test - SString8TestSizeLength
+    size_type size() const noexcept; // test - SString8TestSizeLength
+    size_type length() const noexcept; // test - SString8TestSizeLength
 
-    auto operator<=>(const SString8& rhs) const noexcept // test - SString8TestSpaceshipEqEq
+    friend auto operator<=>(const SString8& lhs, const SString8& rhs) noexcept // test - SString8TestSpaceshipEqEq
     {
-        const auto thislen = size();
-        const auto thatlen = rhs.size();
-
-        if (auto cmp = thislen<=>thatlen; cmp != 0)
-            return cmp;
-
-        const auto thisdata = std::string_view(data(), thislen);
-        const auto thatdata = std::string_view(rhs.data(), thislen);
+        const auto thisdata = std::string_view(lhs.data(), lhs.size());
+        const auto thatdata = std::string_view(rhs.data(), rhs.size());
         const auto cmp = thisdata <=> thatdata;
         return cmp;
     }
-    bool operator==(const SString8& rhs) const noexcept // test - SString8TestSpaceshipEqEq
+    friend bool operator==(const SString8& lhs, const SString8& rhs) noexcept // test - SString8TestSpaceshipEqEq
     {
-        const auto thislen = size();
-        const auto thatlen = rhs.size();
+        const auto thislen = lhs.size();
 
-        if (thislen != thatlen)
+        if (thislen != rhs.size())
             return false;
 
-        const auto thisdata = data();
-        const auto thatdata = rhs.data();
-
-        const auto cmp = strncmp(thisdata, thatdata, thislen);
-        return 0 == cmp;
+        return 0 == strncmp(lhs.data(), rhs.data(), thislen);
     }
 
-    void reserve(size_t new_cap = 0);
+    friend std::ostream& operator<<(std::ostream& os, const SString8& str)
+    {
+        return os << str.data();
+    }
+
+    //void reserve(size_t new_cap = 0);
 
 private:
 
     SString8Data m_Storage;
-
-    inline bool isBuffer() const
-    {
-        return m_Storage.isBuffer();
-    }
-
-    inline void setBuffer()
-    {
-        m_Storage.setBuffer();
-    }
-
-    //inline void setLarge()
-    //{
-    //    m_Storage.setLarge();
-    //}
-
-    inline char* getAsPtr()
-    {
-        return m_Storage.getAsPtr();
-    }
-    inline const char* getAsPtr() const
-    {
-        return m_Storage.getAsPtr();
-    }
-
-    /* 
-    Unused?
-    static CharT* emptyPtr()
-    {
-        static CharT empty = '\0';
-        return &empty;
-    }*/
 
     template<typename StringType>
     inline static size_t check_out_of_range(const StringType& other, SString8::size_type pos)

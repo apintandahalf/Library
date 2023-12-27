@@ -116,26 +116,26 @@ TEST(String8TestConstructorString)
 	}
 }
 
-TEST(String8TestAsStringView)
+TEST(String8Testoperatotstdstringview)
 {
 	{
 		const std::string_view str;
 		const auto str1 = SString8(str);
 		const auto str2 = std::string(str);
-		EXPECT_EQ(str2, str1.asStringView());
-		EXPECT_EQ(str1.asStringView(), str2);
+		EXPECT_EQ(str2, str1.operator std::string_view());
+		EXPECT_EQ(str1.operator std::string_view(), str2);
 	}
 	{
 		const std::string_view str("abcd");
 		const auto str1 = SString8(str);
 		const auto str2 = std::string(str);
-		EXPECT_EQ(str1.asStringView(), str2);
+		EXPECT_EQ(str1.operator std::string_view(), str2);
 	}
 	{
 		const std::string_view str("abcdefghijklmnop");
 		const auto str1 = SString8(str);
 		const auto str2 = std::string(str);
-		EXPECT_EQ(str1.asStringView(), str2);
+		EXPECT_EQ(str1.operator std::string_view(), str2);
 	}
 }
 
@@ -586,27 +586,37 @@ TEST(SString8TestSpaceshipEqEq)
 
 			auto test2 = [](const std::string& s1, const std::string& s2, const SString8& s81, const SString8& s82)
 				{
-					EXPECT_EQ(s1 == s2, s81 == s82);
-					EXPECT_EQ(s1 != s2, s81 != s82);
-					EXPECT_EQ(s1 < s2, s81 < s82);
-					EXPECT_EQ(s1 <= s2, s81 <= s82);
-					EXPECT_EQ(s1 > s2, s81 > s82);
-					EXPECT_EQ(s1 >= s2, s81 >= s82);
+					EXPECT_EQ(s1 == s2, s81 == s82) << s1 << " " << s2 << " " << s81 << " " << s82;
+					EXPECT_EQ(s1 != s2, s81 != s82) << s1 << " " << s2 << " " << s81 << " " << s82;
+					EXPECT_EQ(s1 <  s2, s81 <  s82) << s1 << " " << s2 << " " << s81 << " " << s82;
+					EXPECT_EQ(s1 <= s2, s81 <= s82) << s1 << " " << s2 << " " << s81 << " " << s82;
+					EXPECT_EQ(s1  > s2, s81  > s82) << s1 << " " << s2 << " " << s81 << " " << s82;
+					EXPECT_EQ(s1 >= s2, s81 >= s82) << s1 << " " << s2 << " " << s81 << " " << s82;
 				};
 			test2(str1, str2, str81, str82);
 			test2(str2, str1, str82, str81);
 		};
 	{
+		{
+			test(std::string(), std::string());
+			test(std::string(), std::string(1, 'a'));
+			test(std::string(1, 'a'), std::string());
+			test(std::string(1, 'a'), std::string(1, 'a'));
+			test(std::string(1, 'a'), std::string(2, 'a'));
+			test(std::string(2, 'a'), std::string(1, 'a'));
+			test(std::string(1, 'b'), std::string(2, 'a'));
+			test(std::string(1, 'b'), std::string(2, 'c'));
+		}
 		size_t len1 = 0;
 		size_t len2 = 0;
 		while (len1++ < 34)
 		{
-			const std::string str1(len1, 'a');
+			const std::string str1(len1, 'b');
 
 			while (len2++ < 34)
 			{
 				test(str1, std::string(len2, 'a'));
-				test(str1, std::string(len2, 'b'));
+				test(str1, std::string(len2, 'c'));
 			}
 		}
 	}
