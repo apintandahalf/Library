@@ -262,11 +262,11 @@ struct SString8Data
     {
     }
 
+    /** Assumes that we are doing a heap allocation not a buffer storage */
     void allocate(const char* pRhs, size_t len, size_t cap)
     {
         const auto offset = (cap <= max_size_small) ? 0U : (cap <= fifeteen_bites_set) ? 8U : 16U;
         //auto offset = (len <= max_size_small) * 0U + (len > max_size_small && len <= fifeteen_bites_set) * 8U + (len > fifeteen_bites_set) * 16U;
-        //const auto cap = len + ((len <= max_size_small) * ((len & 1) != 0));
         auto ptr = new char[cap + offset + 1];
         strncpy_s(ptr + offset, len + 1, pRhs, len);
         ptr[len + offset] = '\0';
@@ -295,15 +295,17 @@ struct SString8Data
         else
         {
             const auto cap = (len <= max_size_small && ((len & 1) != 0)) ? len + 1 : len;
+            //const auto cap = len + ((len <= max_size_small) * ((len & 1) != 0));
             allocate(pRhs, len, cap);
         }
     }
 
+    /** if the requested amount is bigger than what is currently available, then do a heap allocation to the new capacity, copying across and then deleting the old string */
     void reserve(size_t new_cap)
     {
         if (new_cap <= capacity())
             return;
-
+        // small strings get an even capacity
         new_cap = (new_cap <= max_size_small && ((new_cap & 1) != 0)) ? new_cap + 1 : new_cap;
 
         auto oldPtr = getAsPtr();
@@ -326,6 +328,7 @@ An alternative to std::string which is only 8 bytes in size as opposed to the us
 Only valid on a 64 bit  system.
 Otimised for very short strings - has a 7 byte buffer (as opposed to the more usual 15 or 23)
 It does support the full range of string sizes, but once the string is bigger than 254 bytes it will be less performant than a std::string (though still smaller)
+No documentation as it is the same as std::string
 */
 class SString8
 {
@@ -404,10 +407,8 @@ public:
 
     ~SString8() noexcept = default;
 
-    // data and length
     const CharT* data() const noexcept; // test - SString8TestData
     CharT* data() noexcept; // test - SString8TestData
-
     size_type size() const noexcept; // test - SString8TestSizeLength
     size_type length() const noexcept; // test - SString8TestSizeLength
     size_type capacity() const noexcept;
@@ -434,7 +435,7 @@ public:
         return os << str.data();
     }
 
-    void reserve(size_type new_cap = 0);
+    void reserve(size_type new_cap = 0); //SString8Testreserve
 
 private:
 
