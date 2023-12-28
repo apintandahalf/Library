@@ -82,7 +82,12 @@ SString8::size_type SString8::length() const noexcept
     return size();
 }
 
-//void SString8::reserve(size_t /*new_cap*/)
-//{
-//    // @TODO
-//}
+SString8::size_type SString8::capacity() const noexcept
+{
+    return m_Storage.capacity();
+}
+
+void SString8::reserve(SString8::size_type new_cap)
+{
+    return m_Storage.reserve(new_cap);
+}

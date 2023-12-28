@@ -33,7 +33,6 @@ TEST(String8TestDefaultConstructor)
 {
 	SString8 lhs;
 	std::string rhs;
-	//testAreEqual(str1, str2);
 	EXPECT_EQ(lhs.size(), rhs.size());
 	const auto pL = lhs.data();
 	EXPECT_NE(pL, nullptr);
@@ -642,6 +641,10 @@ TEST(SString8TestSizeLength)
 		const SString8 str81(str1);
 		EXPECT_EQ(len1, str81.size());
 		EXPECT_EQ(len1, str81.length());
+		if (len1 <= 7)
+			EXPECT_EQ(7, str81.capacity()) << len1 << " " << str81.capacity();
+		else
+			EXPECT_TRUE(len1 == str81.capacity() || len1 + 1 == str81.capacity()) << len1 << " " << str81.capacity();
 	}
 }
 
@@ -669,4 +672,42 @@ TEST(SString8TestEmbeddedNulls)
 {
 	testSString8TestEmbeddedNulls<std::string>();
 	testSString8TestEmbeddedNulls<SString8>();
+}
+
+TEST(SString8Testreserve)
+{
+	const auto sizes = { 0ULL, 7Ull, 8ULL, 9ULL, 253Ull , 254Ull, 255Ull , 256Ull, ((1ULL << 15U) - 1U), (1ULL << 15U), ((1ULL << 15U) + 1U) };
+	for (const auto sz : sizes)
+	{
+		SString8 data;
+		data.reserve(sz);
+		EXPECT_EQ(0, data.size()) << sz;
+		const auto cap = data.capacity();
+		if (sz <= 7)
+			EXPECT_EQ(7, cap) << sz;
+		else
+			EXPECT_TRUE(sz == cap || sz + 1 == cap) << sz << " " << cap;
+	}
+
+	for (const auto sz1 : sizes)
+	{
+		for (const auto sz2 : sizes)
+		{
+			const std::string data(sz1, 'a');
+			const SString8 data1(data);
+			SString8 data2(data1);
+			data2.reserve(sz2);
+			auto p1 = data1.data();
+			auto p2 = data2.data();
+			EXPECT_EQ(0, strcmp(p1, p2)) << sz1 << " " << sz2;
+			const auto cap1 = data1.capacity();
+			const auto cap2 = data2.capacity();
+			const auto szz1 = data1.size();
+			const auto szz2 = data2.size();
+			EXPECT_EQ(szz2, szz1) << sz1 << " " << sz2;
+			EXPECT_GE(cap2, cap1) << sz1 << " " << sz2;
+			EXPECT_GE(cap2, sz1) << sz1 << " " << sz2;
+			EXPECT_GE(cap2, sz2) << sz1 << " " << sz2;
+		}
+	}
 }

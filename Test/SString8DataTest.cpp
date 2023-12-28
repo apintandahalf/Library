@@ -13,6 +13,7 @@ TEST(Data)
 		EXPECT_FALSE(data.isMedium());
 		EXPECT_FALSE(data.isLarge());
 		EXPECT_EQ(data.size(), 0);
+		EXPECT_EQ(data.capacity(), 7);
 	}
 
 	for (const std::string_view str : { "", "1", "1234567", "12345678" })
@@ -27,6 +28,7 @@ TEST(Data)
 		{
 			auto p = data2.data();
 			EXPECT_EQ(p, data.m_Storage.m_Buffer.m_Buffer) << str;
+			EXPECT_EQ(data.capacity(), 7);
 		}
 		else
 		{
@@ -34,6 +36,7 @@ TEST(Data)
 			EXPECT_NE(reinterpret_cast<uintptr_t>(p), data.m_Storage.m_pLargeStr) << str;
 			EXPECT_EQ(p, data.getAsPtr()) << str;
 			EXPECT_EQ(p, data2.getAsPtr()) << str;
+			EXPECT_EQ(data2.capacity(), data2.size());
 		}
 	}
 
@@ -47,8 +50,9 @@ TEST(Data)
 		EXPECT_FALSE(data.isMedium()) << sz;
 		EXPECT_FALSE(data.isLarge()) << sz;
 		EXPECT_EQ(data.size(), sz) << sz;
+		EXPECT_EQ(data.capacity(), 7);
 	}
-	for (const auto sz : { 8ULL, 255Ull })
+	for (const auto sz : { 8ULL, 9ULL, 253Ull , 254Ull })
 	{
 		const std::string str(sz, 'a');
 		SString8Data data(str.data());
@@ -58,8 +62,9 @@ TEST(Data)
 		EXPECT_FALSE(data.isMedium()) << sz;
 		EXPECT_FALSE(data.isLarge()) << sz;
 		EXPECT_EQ(sz, data.size()) << sz;
+		EXPECT_TRUE(data.capacity() == sz || data.capacity() == sz+1) << data.capacity() << " " << sz;
 	}
-	for (const auto sz : { 256Ull, ((1ULL << 15U) - 1U) })
+	for (const auto sz : { 255Ull, ((1ULL << 15U) - 1U) })
 	{
 		const std::string str(sz, 'a');
 		SString8Data data(str.data());
@@ -69,6 +74,7 @@ TEST(Data)
 		EXPECT_TRUE(data.isMedium()) << sz;
 		EXPECT_FALSE(data.isLarge()) << sz;
 		EXPECT_EQ(sz, data.size()) << sz;
+		EXPECT_EQ(data.capacity(), sz);
 	}
 	for (const auto sz : { (1ULL << 15U) })
 	{
@@ -80,6 +86,7 @@ TEST(Data)
 		EXPECT_FALSE(data.isMedium()) << sz;
 		EXPECT_TRUE(data.isLarge()) << sz;
 		EXPECT_EQ(sz, data.size()) << sz;
+		EXPECT_EQ(data.capacity(), sz);
 	}
 
 	const auto strs = { "", "1", "1234567", "12345678" };
@@ -94,6 +101,76 @@ TEST(Data)
 			data1.swap(data2);
 			EXPECT_EQ(strcmp(data1.data(), str2.data()), 0) << str1 << str2;
 			EXPECT_EQ(strcmp(data2.data(), str1.data()), 0) << str1 << str2;
+		}
+	}
+}
+
+TEST(SString8DataTestgetSizeAndCap)
+{
+	for (const auto sz : { 0ULL, 7Ull, 8ULL, 9ULL, 253Ull , 254Ull, 255Ull , 256Ull, ((1ULL << 15U) - 1U), (1ULL << 15U), ((1ULL << 15U) + 1U) })
+	{
+		const std::string str(sz, 'a');
+		const SString8Data data(str.data());
+		const auto& [szz, cap] = data.getSizeAndCap();
+		EXPECT_EQ(szz, data.size()) << sz;
+		EXPECT_TRUE(cap == data.capacity()) << sz;
+	}
+}
+
+TEST(SString8DataTestgetDataAndSize)
+{
+	for (const auto sz : { 0ULL, 7Ull, 8ULL, 9ULL, 253Ull , 254Ull, 255Ull , 256Ull, ((1ULL << 15U) - 1U), (1ULL << 15U), ((1ULL << 15U) + 1U) })
+	{
+		const std::string str(sz, 'a');
+		{
+			SString8Data data(str.data());
+			const auto& [ptr, szz] = data.getDataAndSize();
+			EXPECT_EQ(ptr, data.data()) << sz;
+			EXPECT_EQ(szz, data.size()) << sz;
+		}
+		{
+			const SString8Data data(str.data());
+			const auto& [ptr, szz] = data.getDataAndSize();
+			EXPECT_EQ(ptr, data.data()) << sz;
+			EXPECT_EQ(szz, data.size()) << sz;
+		}
+	}
+}
+
+TEST(SString8DataTestreserve)
+{
+	const auto sizes = { 0ULL, 7Ull, 8ULL, 9ULL, 253Ull , 254Ull, 255Ull , 256Ull, ((1ULL << 15U) - 1U), (1ULL << 15U), ((1ULL << 15U) + 1U) };
+	for (const auto sz : sizes)
+	{
+		SString8Data data;
+		data.reserve(sz);
+		const auto& [szz, cap] = data.getSizeAndCap();
+		EXPECT_EQ(0, szz) << sz;
+		if (sz <= 7)
+			EXPECT_EQ(7, cap) << sz;
+		else if (data.isSmall())
+			EXPECT_TRUE(sz == cap || sz+1 == cap) << sz << " " << cap;
+		else
+			EXPECT_EQ(sz, cap) << sz;
+	}
+
+	for (const auto sz1 : sizes)
+	{
+		for (const auto sz2 : sizes)
+		{
+			const std::string data(sz1, 'a');
+			const SString8Data data1(data);
+			SString8Data data2(data1);
+			data2.reserve(sz2);
+			auto p1 = data1.data();
+			auto p2 = data2.data();
+			EXPECT_EQ(0, strcmp(p1, p2)) << sz1 << " " << sz2;
+			const auto& [szz1, cap1] = data1.getSizeAndCap();
+			const auto& [szz2, cap2] = data2.getSizeAndCap();
+			EXPECT_EQ(szz2, szz1) << sz1 << " " << sz2;
+			EXPECT_GE(cap2, cap1) << sz1 << " " << sz2;
+			EXPECT_GE(cap2, sz1) << sz1 << " " << sz2;
+			EXPECT_GE(cap2, sz2) << sz1 << " " << sz2;
 		}
 	}
 }

@@ -9,7 +9,7 @@ Everything is public becuase it is assumed that all access (other than for testi
 
 How the string, size and capacity are stored
 
-There are 4 size flavours - buffer (0-7 chars), small (8-255), medium (256-2^15)and large (>2^15).  Note thathese lengths refer to the capacity, not the length of the string actually stored.
+There are 4 size flavours - buffer (0-7 chars), small (8-254), medium (255-2^15)and large (>2^15).  Note thathese lengths refer to the capacity, not the length of the string actually stored.
 It is not expected that large will be used very often as this class is all about storage size, and if you are storing GB of string data then there are probably better classes.
 Note that "Byte 7" and "last byte" are synonyms here (as arrays start at byte 0).
 Nibbles:
@@ -34,7 +34,7 @@ Small, Medium and Large
     meaning that it is not necessary to go to the allocation itself to determine these values until the size or capacity get big, which is not the use case for SString8.
     Small, Medium and large are distinguished by bits 0 and 1 of byte 0
     Small
-        Stores 8 to 255 characters (excluding null terminator)
+        Stores 8 to 254 characters (excluding null terminator)
         Bits 0 and 1 of byte 0 are 0b00
         The remainder of byte 0 and bytes 1-5 store the address of the string.
         Byte 6 contains the length.
@@ -42,7 +42,7 @@ Small, Medium and Large
         size() returns byte 6.
         capacity() returns ( ((byte 7) & 0b01111111) >> 1).
     Medium
-        Stores 256 to 2^15 characters (excluding null terminator)
+        Stores 255 to 2^15 characters (excluding null terminator)
         Bits 0 and 1 of byte 0 are 0b01
         The remainder of byte 0 and bytes 1-5 store the address of the string.
         Bytes 6 and 7 contain the length. The top bit is always 1 (to indicate heap allocation), leaving 15 bits, so the maximum size that can be stored is 2^15.
@@ -89,7 +89,7 @@ struct SString8Data
     static inline constexpr auto medium_bits = top | medium_lower_bits;
     static inline constexpr auto large_bits  = top | large_lower_bits;
     static inline constexpr auto fifeteen_bites_set = 0x7FFFULL;
-    static inline constexpr auto max_size_small = 255ULL;
+    static inline constexpr auto max_size_small = 254ULL;
     
     static inline constexpr auto lowest_two_bits_zero = ~0b11ULL;
     static inline constexpr auto not_top_two_bytes_or_bottom_two_bits =    0x00ULL
@@ -114,23 +114,30 @@ struct SString8Data
     // highest bit is 1 if it is a pointer, 0 if it is a buffer
     inline void setBuffer() noexcept { m_Storage.m_Buffer.m_Buffer[7] &= 0b01111111; }
     inline void clearPtrSizeBits() noexcept { m_Storage.m_Buffer.m_Buffer[0] &= 0b11111100; }
-    inline void setSmall(size_t len)  noexcept
+    inline void setSmall(size_t len, size_t cap)  noexcept
     { // 6 length, 7 capacity
         clearPtrSizeBits();
         *reinterpret_cast<uint8_t*>(&m_Storage.m_Buffer.m_Buffer[6]) = static_cast<uint8_t>(len);
+        *reinterpret_cast<uint8_t*>(&m_Storage.m_Buffer.m_Buffer[7]) = static_cast<uint8_t>(cap >> 1U);
         m_Storage.m_pLargeStr |= small_bits;
     }
-    inline void setMedium(size_t len) noexcept
+    inline void setMedium(size_t len, size_t cap) noexcept
     {
         // 6 and 7 length
         clearPtrSizeBits();
-        *reinterpret_cast<uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]) = static_cast<uint16_t>(len);
+        auto pCap = reinterpret_cast<uint64_t*>(reinterpret_cast<char*>(m_Storage.m_pLargeStr));
+        *pCap = cap;
+        auto pLen = reinterpret_cast<uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
+        *pLen = static_cast<uint16_t>(len);
         m_Storage.m_pLargeStr |= medium_bits;
     }
-    inline void setLarge(size_t /*len*/)  noexcept
+    inline void setLarge(size_t len, size_t cap)  noexcept
     {
-        //@TODO - store the size somewhere
         clearPtrSizeBits();
+        auto pLen = reinterpret_cast<uint64_t*>(reinterpret_cast<char*>(m_Storage.m_pLargeStr));
+        *pLen = len;
+        auto pCap = reinterpret_cast<uint64_t*>(8U + reinterpret_cast<char*>(m_Storage.m_pLargeStr));
+        *pCap = cap;
         m_Storage.m_pLargeStr |= large_bits;
     }
 
@@ -161,23 +168,69 @@ struct SString8Data
             return *reinterpret_cast<const uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6])
                 & ~(1U << 15U); // remove the top bit
 
-        // @todo
-        return strlen(getAsPtr());
+        auto ptr = getAsPtr();
+        auto pLen = reinterpret_cast<const uint64_t*>(reinterpret_cast<const char*>(ptr));
+        return *pLen;
+    }
+
+    size_t capacity() const noexcept
+    {
+        if (isBuffer())
+            return 7;
+
+        if (isSmall())
+        {
+            size_t sz = (*reinterpret_cast<const uint8_t*>(&m_Storage.m_Buffer.m_Buffer[7])) & ~(1U << 7U); // remove the top bit
+            return sz << 1U; // its an even number stored shifted right 1 to make room for the ptr indicator
+        }
+
+        if (isMedium())
+        {
+            const auto ptr = getAsPtr();
+            auto uintPtr = reinterpret_cast<const uint64_t*>(reinterpret_cast<const char*>(ptr));
+            return *uintPtr;
+        }
+
+        auto ptr = getAsPtr();
+        auto pCap = reinterpret_cast<const uint64_t*>(8U + reinterpret_cast<const char*>(ptr));
+        return *pCap;
+    }
+
+    std::pair<size_t, size_t> getSizeAndCap() const
+    {
+        return { size(), capacity() }; // @todo - speed this up to avoid multiple calls to isSmall etc
+    }
+
+    std::pair<char*, size_t> getDataAndSize()
+    {
+        return { data(), size() }; // @todo - speed this up to avoid multiple calls to isSmall etc
+    }
+
+    std::pair<const char*, size_t> getDataAndSize() const
+    {
+        return { data(), size() }; // @todo - speed this up to avoid multiple calls to isSmall etc
     }
 
     inline char* data() noexcept
     {
         if (isBuffer())
             return m_Storage.m_Buffer.m_Buffer;
-
-        return getAsPtr();
+        if (isSmall())
+            return getAsPtr();
+        if (isMedium())
+            return 8U + getAsPtr();
+        return 16U + getAsPtr();
     }
+
     inline const char* data() const noexcept
     {
         if (isBuffer())
             return m_Storage.m_Buffer.m_Buffer;
-
-        return getAsPtr();
+        if (isSmall())
+            return getAsPtr();
+        if (isMedium())
+            return 8U + getAsPtr();
+        return 16U + getAsPtr();
     }
 
     SString8Data() = default;
@@ -209,6 +262,23 @@ struct SString8Data
     {
     }
 
+    void allocate(const char* pRhs, size_t len, size_t cap)
+    {
+        const auto offset = (cap <= max_size_small) ? 0U : (cap <= fifeteen_bites_set) ? 8U : 16U;
+        //auto offset = (len <= max_size_small) * 0U + (len > max_size_small && len <= fifeteen_bites_set) * 8U + (len > fifeteen_bites_set) * 16U;
+        //const auto cap = len + ((len <= max_size_small) * ((len & 1) != 0));
+        auto ptr = new char[cap + offset + 1];
+        strncpy_s(ptr + offset, len + 1, pRhs, len);
+        ptr[len + offset] = '\0';
+        m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
+        if (cap <= max_size_small)
+            setSmall(len, cap);
+        else if (cap <= fifeteen_bites_set)
+            setMedium(len, cap);
+        else
+            setLarge(len, cap);
+    }
+
     /**
     Assumes that len is the number of chars pointed to by pRhs, not including any null terminator.
     If this is not true then bad things will happen.
@@ -224,19 +294,26 @@ struct SString8Data
         }
         else
         {
-            auto ptr = new char[len + 1];
-            strncpy_s(ptr, len + 1, pRhs, len);
-            ptr[len] = '\0';
-            m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
-            if (len <= max_size_small)
-                setSmall(len);
-            else if (len <= fifeteen_bites_set)
-                setMedium(len);
-            else
-                setLarge(len);
-            // @todo - capacity
+            const auto cap = (len <= max_size_small && ((len & 1) != 0)) ? len + 1 : len;
+            allocate(pRhs, len, cap);
         }
     }
+
+    void reserve(size_t new_cap)
+    {
+        if (new_cap <= capacity())
+            return;
+
+        new_cap = (new_cap <= max_size_small && ((new_cap & 1) != 0)) ? new_cap + 1 : new_cap;
+
+        auto oldPtr = getAsPtr();
+        const auto bWasPtr = isPtr();
+        auto [p, sz] = getDataAndSize();
+        allocate(p, sz, new_cap);
+        if (bWasPtr)
+            delete[] oldPtr;
+    }
+
 };
 
 #include <cstddef>
@@ -248,7 +325,7 @@ struct SString8Data
 An alternative to std::string which is only 8 bytes in size as opposed to the usual 24-32 bytes.
 Only valid on a 64 bit  system.
 Otimised for very short strings - has a 7 byte buffer (as opposed to the more usual 15 or 23)
-It does support the full range of string sizes, but once the string is bigger than 255 bytes it will be less performant than a std::string (though still smaller)
+It does support the full range of string sizes, but once the string is bigger than 254 bytes it will be less performant than a std::string (though still smaller)
 */
 class SString8
 {
@@ -333,6 +410,7 @@ public:
 
     size_type size() const noexcept; // test - SString8TestSizeLength
     size_type length() const noexcept; // test - SString8TestSizeLength
+    size_type capacity() const noexcept;
 
     friend auto operator<=>(const SString8& lhs, const SString8& rhs) noexcept // test - SString8TestSpaceshipEqEq
     {
@@ -356,7 +434,7 @@ public:
         return os << str.data();
     }
 
-    //void reserve(size_t new_cap = 0);
+    void reserve(size_type new_cap = 0);
 
 private:
 
