@@ -55,7 +55,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <WarningLevel>Level4</WarningLevel>
-      <AdditionalIncludeDirectories>../Library;../../UTest</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Library;../../PintTest</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -73,7 +73,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <WarningLevel>Level4</WarningLevel>
-      <AdditionalIncludeDirectories>../Library;../../UTest</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Library;../../PintTest</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>

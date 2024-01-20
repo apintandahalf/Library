@@ -1,6 +1,6 @@
-#include <UnitTest.h>
+#include <PintTest.h>
 
 int main()
 {
-    return Testy::runAllTests();
+    return PintTest::runAllTests();
 }

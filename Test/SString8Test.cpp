@@ -1,6 +1,6 @@
 #include "SString8.h"
 
-#include "UnitTest.h"
+#include "PintTest.h"
 
 namespace
 {
