@@ -2,6 +2,7 @@
 
 #include "PintTest.h"
 
+using namespace SString8Detail;
 
 TEST(Data)
 {

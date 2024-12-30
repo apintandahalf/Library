@@ -1,5 +1,34 @@
 #include "SString8.h"
 
+#include <algorithm>
+
+SString8Detail::SString8Data::SString8Data(size_t count, char ch)
+{
+    if (count <= 7)
+    {
+        for (size_t i = 0; i < count; ++i)
+            m_Storage.m_Buffer.m_Buffer[i] = ch;
+        m_Storage.m_Buffer.m_Buffer[7] = static_cast<char>(7 - count);
+    }
+    else
+    {
+        auto cap = calcCapacity(count);
+
+        const auto offset = (cap <= max_size_small) ? 0U : (cap <= fifeteen_bites_set) ? 8U : 16U;
+        auto ptr = new char[cap + offset + 1];
+        auto p = ptr + offset;
+        std::for_each(p, p + count, [ch](char& c) { c = ch; });
+        p[count] = '\0';
+        m_Storage.m_pLargeStr = reinterpret_cast<uintptr_t>(ptr);
+        if (cap <= max_size_small)
+            setSmall(count, cap);
+        else if (cap <= fifeteen_bites_set)
+            setMedium(count, cap);
+        else
+            setLarge(count, cap);
+    }
+}
+
 SString8::operator std::string_view() const
 {
     return { data(), length() };
@@ -15,21 +44,14 @@ SString8::SString8(const std::string& str)
 {
 }
 
-SString8::SString8(size_type count, CharT ch)
-    : SString8(std::string(count, ch)) // creates a temporary.  @TODO To be fixed once we have preallocation of size
+SString8::SString8(size_t count, char ch)
+    : m_Storage(count, ch)
 {
 }
 
 SString8::SString8(const SString8& other, size_type pos, size_type count)
     : m_Storage(other.data() + pos + SString8::check_out_of_range(other, pos), SString8::check_count(other, pos, count))
 {
-    /*
-    basic_string( const basic_string& other,
-                  size_type pos, size_type count,
-                  const Allocator& alloc = Allocator() );
-    Constructs the string with a substring [pos, pos + count) of other.
-    If count == npos, if count is not specified, or if the requested substring lasts past the end of the string, the resulting substring is [pos, other.size()).
-    */
 }
 
 SString8::SString8(const std::string& other, size_type pos, size_type count)
