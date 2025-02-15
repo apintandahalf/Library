@@ -84,6 +84,58 @@ SString8::SString8(std::initializer_list<CharT> ilist)
 {
 }
 
+SString8& SString8::operator=(const CharT* s)
+{
+    // TODO - a bit inefficient as we have worked out the storage type to get the ptr and capacity, and then we do the same again in setSize
+    const auto newlen = strlen(s);
+    const auto [oldptr, oldcap] = m_Storage.getDataAndCap();
+    if (newlen <= oldcap)
+    {
+        strcpy(oldptr, s);
+        m_Storage.setSize(newlen);
+    }
+    else
+    {
+        m_Storage.allocateWithDeallocate(s, newlen);
+    }
+    return *this;
+}
+
+SString8& SString8::operator=(CharT ch)
+{
+    // TODO - a bit inefficient as we have worked out the storage type to get the ptr and capacity, and then we do the same again in setSize
+    const auto [oldptr, oldcap] = m_Storage.getDataAndCap();
+    ASSERT(oldcap > 2);
+    oldptr[0] = ch;
+    oldptr[1] = '\0';
+    m_Storage.setSize(1);
+    return *this;
+}
+
+SString8& SString8::operator=(std::initializer_list<CharT> ilist)
+{
+    // TODO - a bit inefficient as we have worked out the storage type to get the ptr and capacity, and then we do the same again in setSize
+    const auto newlen = ilist.size();
+    const auto [oldptr, oldcap] = m_Storage.getDataAndCap();
+    if (newlen <= oldcap)
+    {
+        size_t i = 0;
+        for (const auto ch : ilist)
+        {
+            oldptr[i] = ch;
+            ++i;
+        }
+        ASSERT(i == newlen);
+        oldptr[newlen] = '\0';
+        m_Storage.setSize(newlen);
+    }
+    else
+    {
+        m_Storage.allocateWithDeallocate(ilist.begin(), newlen);
+    }
+    return *this;
+}
+
 const SString8::CharT* SString8::data() const noexcept
 {
     return m_Storage.data();

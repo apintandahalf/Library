@@ -3,6 +3,30 @@
 #include <bit>
 #include <string_view>
 #include <limits>
+#include <cstring>
+
+// assert
+#ifdef _DEBUG
+#include <cstdlib>
+#include <iostream>
+
+inline void do_assert(bool expr, const char* expression)
+{
+    if (!expr)
+    {
+        // handle failed assertion
+        std::cout << expression << "\n" << std::flush;
+        std::abort();
+    }
+}
+#endif
+
+#ifdef _DEBUG
+#define ASSERT(Expr) \
+    do_assert(Expr, #Expr)
+#else
+#define ASSERT(Expr) 
+#endif
 
 namespace SString8Detail
 {
@@ -122,10 +146,23 @@ namespace SString8Detail
         {
             return (m_Storage.m_pLargeStr & top) != 0;
         }
+        enum class StorageType { BUFFER, SMALL, MEDIUM, LARGE };
         inline bool isBuffer() const noexcept { return !isPtr(); }
         inline bool isSmall()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == small_lower_bits; }
         inline bool isMedium() const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == medium_lower_bits; }
         inline bool isLarge()  const noexcept { return isPtr() && (m_Storage.m_pLargeStr & 0b11) == large_lower_bits; }
+        [[nodiscard]] StorageType getStorageType() const
+        {
+            // @todo speed this up
+            if (isBuffer())
+                return StorageType::BUFFER;
+            if (isSmall())
+                return StorageType::SMALL;
+            if (isMedium())
+                return StorageType::MEDIUM;
+            ASSERT(isLarge());
+            return StorageType::LARGE;
+        }
 
         // highest bit is 1 if it is a pointer, 0 if it is a buffer
         inline void setBuffer() noexcept { m_Storage.m_Buffer.m_Buffer[7] &= 0b01111111; }
@@ -174,42 +211,86 @@ namespace SString8Detail
 
         size_t size() const noexcept
         {
-            if (isBuffer())
+            switch (getStorageType())
+            {
+            case StorageType::BUFFER:
                 return 7 - m_Storage.m_Buffer.m_Buffer[7]; // std::find ?
-
-            if (isSmall())
+            case StorageType::SMALL:
                 return *reinterpret_cast<const uint8_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
+            case StorageType::MEDIUM:
+                return *reinterpret_cast<const uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]) & ~(1U << 15U); // remove the top bit
+            case StorageType::LARGE:
+                auto ptr = getAsPtr();
+                auto pLen = reinterpret_cast<const uint64_t*>(reinterpret_cast<const char*>(ptr));
+                return *pLen;
+            }
+            ASSERT(false);
+            return 0;
+        }
 
-            if (isMedium())
-                return *reinterpret_cast<const uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6])
-                & ~(1U << 15U); // remove the top bit
-
-            auto ptr = getAsPtr();
-            auto pLen = reinterpret_cast<const uint64_t*>(reinterpret_cast<const char*>(ptr));
-            return *pLen;
+        // assumes that it is already in the correct size format
+        void setSize(size_t sz) noexcept
+        {
+            switch (getStorageType())
+            {
+            case StorageType::BUFFER:
+            {
+                ASSERT(sz <= 7);
+                m_Storage.m_Buffer.m_Buffer[7] = static_cast<char>(7 - sz);
+                break;
+            }
+            case StorageType::SMALL:
+            {
+                auto pLen = reinterpret_cast<uint8_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
+                *pLen = static_cast<uint8_t>(sz);
+                break;
+            }
+            case StorageType::MEDIUM:
+            {
+                auto pLen = reinterpret_cast<uint16_t*>(&m_Storage.m_Buffer.m_Buffer[6]);
+                *pLen = static_cast<uint16_t>(sz | (1U << 15U));
+                break;
+            }
+            case StorageType::LARGE:
+            {
+                auto ptr = getAsPtr();
+                auto pLen = reinterpret_cast<uint64_t*>(reinterpret_cast<char*>(ptr));
+                *pLen = sz;
+                break;
+            }
+            default:
+                ASSERT(false);
+            }
         }
 
         size_t capacity() const noexcept
         {
-            if (isBuffer())
+            switch (getStorageType())
+            {
+            case StorageType::BUFFER:
+            {
                 return 7;
-
-            if (isSmall())
+            }
+            case StorageType::SMALL:
             {
                 size_t sz = (*reinterpret_cast<const uint8_t*>(&m_Storage.m_Buffer.m_Buffer[7])) & ~(1U << 7U); // remove the top bit
                 return sz << 1U; // its an even number stored shifted right 1 to make room for the ptr indicator
             }
-
-            if (isMedium())
+            case StorageType::MEDIUM:
             {
                 const auto ptr = getAsPtr();
                 auto uintPtr = reinterpret_cast<const uint64_t*>(reinterpret_cast<const char*>(ptr));
                 return *uintPtr;
             }
-
-            auto ptr = getAsPtr();
-            auto pCap = reinterpret_cast<const uint64_t*>(8U + reinterpret_cast<const char*>(ptr));
-            return *pCap;
+            case StorageType::LARGE:
+            {
+                auto ptr = getAsPtr();
+                auto pCap = reinterpret_cast<const uint64_t*>(8U + reinterpret_cast<const char*>(ptr));
+                return *pCap;
+            }
+            }
+            ASSERT(false);
+            return 0;
         }
 
         std::pair<size_t, size_t> getSizeAndCap() const
@@ -220,6 +301,11 @@ namespace SString8Detail
         std::pair<char*, size_t> getDataAndSize()
         {
             return { data(), size() }; // @todo - speed this up to avoid multiple calls to isSmall etc
+        }
+
+        std::pair<char*, size_t> getDataAndCap()
+        {
+            return { data(), capacity() }; // @todo - speed this up to avoid multiple calls to isSmall etc
         }
 
         std::pair<const char*, size_t> getDataAndSize() const
@@ -278,11 +364,10 @@ namespace SString8Detail
         {
         }
 
-        /** Assumes that we are doing a heap allocation not a buffer storage */
-        void allocate(const char* pRhs, size_t len, size_t cap)
+        /** Assumes that we are doing a heap allocation not a buffer storage. Does not deallocate */
+        void allocatePtr(const char* pRhs, size_t len, size_t cap)
         {
             const auto offset = (cap <= max_size_small) ? 0U : (cap <= fifeteen_bites_set) ? 8U : 16U;
-            //auto offset = (len <= max_size_small) * 0U + (len > max_size_small && len <= fifeteen_bites_set) * 8U + (len > fifeteen_bites_set) * 16U;
             auto ptr = new char[cap + offset + 1];
             strncpy_s(ptr + offset, len + 1, pRhs, len);
             ptr[len + offset] = '\0';
@@ -295,12 +380,7 @@ namespace SString8Detail
                 setLarge(len, cap);
         }
 
-        /**
-        Assumes that len is the number of chars pointed to by pRhs, not including any null terminator.
-        If this is not true then bad things will happen.
-        Null terminator not required.
-        */
-        SString8Data(const char* pRhs, size_t len)
+        void allocate(const char* pRhs, size_t len)
         {
             if (len <= 7)
             {
@@ -310,10 +390,26 @@ namespace SString8Detail
             }
             else
             {
-                const auto cap = (len <= max_size_small && ((len & 1) != 0)) ? len + 1 : len;
-                //const auto cap = len + ((len <= max_size_small) * ((len & 1) != 0));
-                allocate(pRhs, len, cap);
+                const auto cap = calcCapacity(len);
+                allocatePtr(pRhs, len, cap);
             }
+        }
+
+        void allocateWithDeallocate(const char* pRhs, size_t len)
+        {
+            if (isPtr())
+                delete[] getAsPtr();
+            allocate(pRhs, len);
+        }
+
+        /**
+        Assumes that len is the number of chars pointed to by pRhs, not including any null terminator.
+        If this is not true then bad things will happen.
+        Null terminator not required.
+        */
+        SString8Data(const char* pRhs, size_t len)
+        {
+            allocate(pRhs, len);
         }
 
         /** if the requested amount is bigger than what is currently available, then do a heap allocation to the new capacity, copying across and then deleting the old string */
@@ -327,7 +423,7 @@ namespace SString8Detail
             auto oldPtr = getAsPtr();
             const auto bWasPtr = isPtr();
             auto [pOld, sz] = getDataAndSize();
-            allocate(pOld, sz, new_cap);
+            allocatePtr(pOld, sz, new_cap);
             if (bWasPtr)
                 delete[] oldPtr;
         }
@@ -456,6 +552,20 @@ public:
     }
 
     void reserve(size_type new_cap = 0); //SString8Testreserve
+
+    SString8& operator=(const CharT* s);
+    SString8& operator=(CharT ch);
+    SString8& operator=(std::initializer_list<CharT> ilist);
+#if __cplusplus >= 202002L
+    template<class StringViewLike>
+    SString8& operator=(const StringViewLike& t)
+    {
+        std::string_view str(t);
+        SString8 tempstr(str);
+        return this->operator=(std::move(tempstr));
+    }
+#endif
+    SString8& operator=(std::nullptr_t) = delete;
 
 private:
     SString8Detail::SString8Data m_Storage;
