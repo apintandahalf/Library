@@ -4,6 +4,9 @@
 #include <string_view>
 #include <limits>
 #include <cstring>
+#include <cstdint>
+#include <climits>
+#include <utility>
 
 // assert
 #ifdef _DEBUG
@@ -438,6 +441,8 @@ namespace SString8Detail
 #include <string>
 #include <stdexcept>
 #include <ostream>
+#include <initializer_list>
+#include <type_traits>
 
 /**
 An alternative to std::string which is only 8 bytes in size as opposed to the usual 24-32 bytes.

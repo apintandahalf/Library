@@ -5,6 +5,10 @@
 #include <type_traits>
 #include <cstdint>
 #include <cstring>
+#include <vector>
+#include <string>
+#include <utility>
+#include <string_view>
 
 using namespace SString8Detail;
 

@@ -1,6 +1,11 @@
 #include "SString8.h"
 
 #include <algorithm>
+#include <initializer_list>
+#include <cstring>
+#include <cstddef>
+#include <string_view>
+#include <string>
 
 SString8Detail::SString8Data::SString8Data(size_t count, char ch)
 {
